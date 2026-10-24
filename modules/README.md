@@ -2,14 +2,17 @@
 
 A module is a folder `modules/<name>/` containing:
 
-- `CLAUDE.md`: instructions appended to the base rules when the module is on.
-  They may add behaviour; they may never relax a rule in `claude/CLAUDE.md`.
+- `CLAUDE.md`: rules appended to the base rules when the module is on. They
+  may add behaviour; they may never relax a rule in `claude/CLAUDE.md`.
 - `README.md`: what it does, what it needs installed, how to turn it on.
-- Optional code, invoked by the agent through the tool allow list.
+- Optional `start.py`: a long-running helper the loop starts at boot with the
+  workspace path as its only argument, and terminates at exit.
+- Optional code the agent invokes through the tool allow list.
 
 Modules are turned on by listing them under `modules:` in `local/config.yaml`.
-The install step copies each enabled module's `CLAUDE.md` into
-`workspace/modules/<name>/CLAUDE.md`, which Claude Code picks up automatically.
+At every start the loop writes `workspace/CLAUDE.md` as the base rules followed
+by each enabled module's `CLAUDE.md`, so the workspace always matches the
+installed version.
 
-Nothing is shipped yet. Planned order: maths-screen, scribe, computation,
+Shipped: `maths-screen`. Planned, in order: scribe, computation,
 switch-scanning, email-to-video.

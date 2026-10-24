@@ -18,7 +18,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 
 | Item | Notes |
 | --- | --- |
-| Computer | macOS or Linux. Windows should work under WSL but is untested. |
+| Computer | macOS or Linux (X11 for system-wide button capture; on Wayland use `button_source: terminal`). Windows is untested. |
 | Microphone | Any USB microphone placed near the user. |
 | One accessible button | A USB switch that sends the space bar. Most "big button" switches do this out of the box or with an adapter. |
 | Screen | Placed where the user can read it. Large font. |
@@ -44,8 +44,15 @@ A full step-by-step guide in Spanish, written for non-technical helpers, is in
 
 ## Daily use
 
+One button, two gestures: a short press and a long press (held about 1.5 s).
+
 - **Press** the button. Speak. Pauses are fine, up to 90 seconds by default.
 - **Press** again when done. The reply is spoken and shown on screen.
+- **Press** while it is speaking to stop the speech.
+- **Hold** the button to cancel anything: a recording, a task in progress, a
+  pending confirmation. Held while idle, it explains the controls.
+- During a long task it says "sigo en ello" now and then; a short press gets
+  the same reassurance.
 - **"Repite"** reads the last reply again.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
   for "adelante" before installing. Anything else cancels.
@@ -55,7 +62,13 @@ A full step-by-step guide in Spanish, written for non-technical helpers, is in
 
 ## Safety and privacy, in plain words
 
-- Audio is transcribed on the machine. It is not uploaded anywhere.
+- Audio is transcribed on the machine. It is not uploaded anywhere. Only the
+  text of each turn goes to Claude.
+- What was said and answered is appended to `local/session.log` so a helper
+  can see what went wrong. It never leaves the machine; turn it off with
+  `log_transcripts: false`.
+- Replies are cleaned before being spoken: code, formulas, links and tables
+  stay on screen and are announced, not read character by character.
 - Personal things (email settings, contacts, notes, keys) live in `local/`,
   which is ignored by git and hidden from the assistant.
 - The assistant treats emails and web pages as information, never as orders.
@@ -76,20 +89,23 @@ The usual things to change: `language`, `silence_timeout`, `button_key`,
 ## Modules
 
 Optional features, each in `modules/<name>/` with its own `CLAUDE.md` that
-extends the base rules. Planned:
+extends the base rules. Turn one on by listing it under `modules:` in
+`local/config.yaml`.
 
-- `maths-screen/`: speech to LaTeX with a live rendered preview
+- `maths-screen/` **(shipped)**: a blackboard in the browser. The assistant
+  writes Markdown with LaTeX to a file; the page re-renders it live in large
+  type, fully offline. Formulas are spoken in words and shown as symbols.
 - `scribe/`: idea in, full text out, for papers and books
 - `switch-scanning/`: on-screen menu driven by the button alone
 - `computation/`: GAP/QPA, SageMath, QuiverLab
 - `email-to-video/`: email conversation to AI video
 
-None are shipped yet. See [modules/README.md](modules/README.md).
+See [modules/README.md](modules/README.md).
 
 ## Repository layout
 
 ```
-onebutton/      the loop: button, recording, transcription, Claude turn, speech
+onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS
 claude/         CLAUDE.md rules installed into the workspace, and the tool allow list
 bin/            onebutton (start, auto-restart) and onebutton-release (maintainer)
 bootstrap/      install.sh and allowed_signers

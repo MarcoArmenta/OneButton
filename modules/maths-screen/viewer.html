@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pizarra</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<style>
+  :root { --bg: #fbfaf6; --fg: #1a1a1a; --muted: #6b6b6b; --accent: #2a5db0; --rule: #e3e0d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --fg: #ececec; --muted: #9a9a9a; --accent: #8ab4ff; --rule: #2a2e35; }
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 28px/1.55 Georgia, "Times New Roman", serif; padding: 24px 40px 40vh; max-width: 1100px; margin: 0 auto; }
+  h1, h2, h3 { font-family: system-ui, -apple-system, sans-serif; line-height: 1.2; margin: 1.4em 0 .5em; }
+  h2 { font-size: 1.2em; color: var(--accent); border-top: 2px solid var(--rule); padding-top: .8em; }
+  p { margin: .6em 0; }
+  .katex { font-size: 1.15em; }
+  .katex-display { margin: .8em 0; overflow-x: auto; overflow-y: hidden; }
+  code { font: 0.85em/1.4 ui-monospace, Menlo, monospace; background: var(--rule); padding: 0 .25em; border-radius: 4px; }
+  pre code { display: block; padding: .8em; overflow-x: auto; }
+  ol, ul { padding-left: 1.4em; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; height: 6px; background: var(--rule); }
+  #bar.fresh { background: var(--accent); transition: background .2s; }
+  #bar.stale { background: #d9534f; }
+  #empty { color: var(--muted); font-style: italic; }
+  .fresh-mark { background: color-mix(in srgb, var(--accent) 18%, transparent); transition: background 2s; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<main id="board"><p id="empty">Pizarra vacía. Pide algo con matemáticas y aparecerá aquí.</p></main>
+
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="vendor/katex/contrib/auto-render.min.js"></script>
+<script>
+(function () {
+  var board = document.getElementById('board');
+  var bar = document.getElementById('bar');
+  var lastMtime = null, lastText = null, failures = 0;
+
+  function protectMath(md) {
+    // Keep $...$ and $$...$$ out of the Markdown parser's hands (underscores, asterisks).
+    var slots = [];
+    md = md.replace(/\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+?\$|\\\([\s\S]+?\\\)/g, function (m) {
+      slots.push(m); return '\u0000' + (slots.length - 1) + '\u0000';
+    });
+    return { md: md, restore: function (html) {
+      return html.replace(/\u0000(\d+)\u0000/g, function (_, i) {
+        return slots[+i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      });
+    }};
+  }
+
+  function render(text) {
+    if (!text.trim()) {
+      board.innerHTML = '<p id="empty">Pizarra vacía. Pide algo con matemáticas y aparecerá aquí.</p>';
+      return;
+    }
+    var html;
+    if (window.marked) {
+      var p = protectMath(text);
+      html = p.restore(marked.parse(p.md, { mangle: false, headerIds: false }));
+    } else {
+      html = '<pre>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
+    }
+    board.innerHTML = html;
+    if (window.renderMathInElement) {
+      renderMathInElement(board, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false, strict: 'ignore'
+      });
+    }
+    var last = board.lastElementChild;
+    if (last) {
+      last.classList.add('fresh-mark');
+      last.scrollIntoView({ block: 'end', behavior: 'smooth' });
+      setTimeout(function () { last.classList.remove('fresh-mark'); }, 1500);
+    }
+  }
+
+  function tick() {
+    fetch('/status', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+      failures = 0; bar.className = '';
+      if (s.mtime === lastMtime) return;
+      lastMtime = s.mtime;
+      return fetch('/pizarra.md', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+        if (t === lastText) return;
+        lastText = t; render(t);
+        bar.className = 'fresh'; setTimeout(function () { bar.className = ''; }, 600);
+      });
+    }).catch(function () { if (++failures > 3) bar.className = 'stale'; });
+  }
+  tick(); setInterval(tick, 700);
+})();
+</script>
+</body>
+</html>

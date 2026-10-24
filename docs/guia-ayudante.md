@@ -40,8 +40,13 @@ debería decir en voz alta "OneButton instalado correctamente".
 ~/OneButton/bin/onebutton
 ```
 
-Escucharás "OneButton listo". Haz la prueba tú: pulsa el botón, di "hola, qué
-hora es", pulsa otra vez. Si responde, está funcionando.
+Primero dirá "escuchando el ruido de la sala" (mide el ruido un segundo para
+saber cuándo hay silencio) y luego "OneButton listo". Haz la prueba tú: pulsa
+el botón, di "hola, qué hora es", pulsa otra vez. Si responde, está funcionando.
+
+El botón tiene dos gestos. **Pulsar** empieza y termina la grabación, y corta
+la voz si está hablando. **Mantener pulsado** un segundo y medio cancela lo
+que esté pasando. Enséñale los dos; el segundo da tranquilidad.
 
 Para que arranque solo al encender la computadora:
 
@@ -64,6 +69,12 @@ texto. Lo que más se cambia:
 - `button_key`: si el botón no manda espacio, escribe aquí la tecla.
 - `whisper_model`: `small` va bien. Si la computadora es potente, `medium`
   entiende mejor.
+- `button_source`: si el botón no reacciona cuando la terminal no está
+  delante, pon `terminal`. Entonces la ventana de la terminal tiene que estar
+  siempre seleccionada, pero no hace falta ningún permiso.
+- `modules`: escribe `[maths-screen]` para activar la pizarra de matemáticas.
+  Al arrancar se abre una página del navegador; ponla en la pantalla que la
+  persona lee.
 
 Después de cambiar algo, reinicia OneButton.
 
@@ -76,7 +87,13 @@ estar en Preferencias.
 ## 7. Si algo falla
 
 - **No responde al botón.** Comprueba que el botón manda espacio: abre un
-  editor de texto y púlsalo. Si aparece un espacio, el botón está bien.
+  editor de texto y púlsalo. Si aparece un espacio, el botón está bien. En
+  macOS, la Terminal necesita el permiso "Monitorización de entrada" en
+  Privacidad y seguridad; si no quieres darlo, usa `button_source: terminal`.
+- **Corta a la persona a mitad de frase.** Sube `silence_timeout`. Si la sala
+  es ruidosa y nunca para sola, pon `silence_rms: 0.02` en la configuración.
+- **Quieres ver qué pasó.** `~/OneButton/local/session.log` guarda lo que se
+  dijo y se respondió, con hora. No sale de la computadora.
 - **No escucha.** Comprueba el micrófono en los ajustes de sonido del sistema.
 - **Dice que no encuentra Claude Code.** Repite el paso 2.
 - **Se ha quedado colgado.** Cierra la ventana de la terminal y vuelve a

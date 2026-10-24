@@ -3,16 +3,22 @@
 Each turn is `claude -p --continue` run inside the workspace directory, which
 holds CLAUDE.md (the rules) and the user's files. Tools outside the allow
 list in claude/settings.json are denied rather than prompted, so a turn can
-never hang waiting for a click.
+never hang waiting for a click. A turn can be cancelled from another thread.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
+import threading
+import time
 
 from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR
+
+MSG_TIMEOUT = "La tarea tardó demasiado y la detuve. Dime si quieres que lo intente de otra forma."
+MSG_MISSING = "No encuentro Claude Code en esta computadora. Hay que pedir ayuda para instalarlo."
+MSG_CANCELLED = "Cancelado."
+MSG_LOGIN = "Parece que hay que iniciar sesión en Claude Code otra vez. Hace falta que alguien ayude con eso."
 
 
 class Agent:
@@ -24,6 +30,9 @@ class Agent:
         self.settings = REPO_DIR / "claude" / "settings.json"
         self.workspace = WORKSPACE_DIR
         self.first_turn = True
+        self._proc: subprocess.Popen | None = None
+        self._lock = threading.Lock()
+        self.cancelled = False
 
     def _settings_json(self) -> str:
         """Allow list from claude/settings.json plus absolute deny rules for local/ and the repo code."""
@@ -32,10 +41,17 @@ class Agent:
             data = json.loads(self.settings.read_text(encoding="utf-8"))
         deny = data.setdefault("permissions", {}).setdefault("deny", [])
         for pattern in (f"Read(//{LOCAL_DIR}/**)", f"Edit(//{LOCAL_DIR}/**)",
-                        f"Edit(//{REPO_DIR}/onebutton/**)", f"Edit(//{REPO_DIR}/claude/**)"):
+                        f"Edit(//{REPO_DIR}/onebutton/**)", f"Edit(//{REPO_DIR}/claude/**)",
+                        f"Edit(//{REPO_DIR}/modules/**)"):
             if pattern not in deny:
                 deny.append(pattern)
         return json.dumps(data)
+
+    def cancel(self) -> None:
+        with self._lock:
+            self.cancelled = True
+            if self._proc and self._proc.poll() is None:
+                self._proc.kill()
 
     def ask(self, text: str) -> str:
         cmd = [
@@ -43,22 +59,33 @@ class Agent:
             "--output-format", "text",
             "--permission-mode", self.mode,
             "--max-turns", str(self.max_turns),
+            "--settings", self._settings_json(),
         ]
-        cmd += ["--settings", self._settings_json()]
         if not self.first_turn:
             cmd.append("--continue")
+        self.cancelled = False
         try:
-            proc = subprocess.run(
-                cmd, cwd=self.workspace, capture_output=True, text=True, timeout=self.timeout,
-            )
-        except subprocess.TimeoutExpired:
-            return "La tarea tardó demasiado y la detuve. Dime si quieres que lo intente de otra forma."
+            with self._lock:
+                self._proc = subprocess.Popen(cmd, cwd=self.workspace, stdout=subprocess.PIPE,
+                                              stderr=subprocess.PIPE, text=True)
+                proc = self._proc
         except FileNotFoundError:
-            return "No encuentro Claude Code en esta computadora. Hay que pedir ayuda para instalarlo."
+            return MSG_MISSING
+        try:
+            out, err = proc.communicate(timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            return MSG_TIMEOUT
+        if self.cancelled:
+            return MSG_CANCELLED
         self.first_turn = False
-        out = proc.stdout.strip()
+        out = (out or "").strip()
+        err = (err or "").strip()
         if proc.returncode != 0 and not out:
-            err = (proc.stderr or "").strip().splitlines()
-            tail = err[-1] if err else "sin detalle"
+            low = err.lower()
+            if any(k in low for k in ("login", "log in", "auth", "token", "credential")):
+                return MSG_LOGIN
+            tail = err.splitlines()[-1] if err else "sin detalle"
             return f"Claude Code devolvió un error: {tail}"
         return out or "Listo."

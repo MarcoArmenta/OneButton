@@ -3,9 +3,12 @@
 
 language: es                 # Whisper language code: es, en, ...
 button_key: space            # Key the USB switch sends. "space" is the usual one.
+button_source: auto          # auto, global (system-wide capture), terminal (terminal must stay focused)
 silence_timeout: 90          # Seconds of silence before a recording stops on its own.
 max_recording: 600           # Hard cap in seconds for a single utterance.
 sample_rate: 16000
+input_device: null           # Microphone name or index for sounddevice; null = system default.
+silence_rms: auto            # auto calibrates from room noise at startup; or a number such as 0.01.
 whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish on a CPU.
 whisper_device: auto         # auto, cpu, cuda
 
@@ -20,6 +23,9 @@ repeat_words: ["repite", "repítelo"]
 tts: auto                    # auto, say (macOS), espeak, pyttsx3, none
 tts_voice: ""                # Leave empty for the system default. On macOS try "Paulina" or "Jorge".
 tts_rate: 170
+piper_model: ""              # Path to a Piper .onnx voice (good offline Spanish on Linux). Used when tts is piper or auto.
+progress_interval: 45        # Seconds before saying "sigo en ello" during a long task. 0 disables.
+log_transcripts: true        # Append what was said and answered to local/session.log (never leaves the machine).
 
 # Screen.
 font_size: 28                # Terminal font size the helper sets. Informational, used by the install guide.
@@ -29,6 +35,9 @@ claude_bin: claude
 permission_mode: acceptEdits # acceptEdits is safe: tools outside the allow list are denied, not prompted.
 claude_timeout: 600          # Seconds before a single turn is abandoned and reported aloud.
 max_turns: 30
+
+# Modules. Each adds rules and, sometimes, a helper that starts with the loop.
+modules: []                  # e.g. [maths-screen]
 
 # Updates. The updater refuses anything that is not a tag signed by a key in local/allowed_signers.
 repo_url: https://github.com/MarcoArmenta/OneButton.git

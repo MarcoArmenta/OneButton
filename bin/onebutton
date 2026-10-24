@@ -15,8 +15,14 @@ say_status() {
 
 if [ "${1:-}" != "--no-restart" ]; then
   while true; do
-    "$PY" -m onebutton "$@" && exit 0
-    say_status "OneButton se reinició. Espera un momento."
+    "$PY" -m onebutton "$@"
+    rc=$?
+    [ "$rc" -eq 0 ] && exit 0
+    if [ "$rc" -eq 3 ]; then
+      say_status "Reiniciando con la nueva versión."
+    else
+      say_status "OneButton se reinició. Espera un momento."
+    fi
     sleep 3
   done
 else

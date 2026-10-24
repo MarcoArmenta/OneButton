@@ -52,7 +52,15 @@ else said, including silence, cancels.
 ## 5. Nothing personal in the repo
 
 `local/` and `workspace/` are git-ignored. Nothing in the repo is specific to
-one user.
+one user. `local/session.log` holds transcripts and replies for debugging;
+it is useful and sensitive, and the agent is denied read access to `local/`.
+
+## 6. No network at runtime beyond Claude
+
+Transcription is local (faster-whisper). Speech is local. The blackboard
+module vendors its JavaScript and fonts and binds to 127.0.0.1 only. The only
+network traffic in normal use is Claude Code's own, plus `git fetch` when the
+user says "actualiza".
 
 ## Known gaps
 
