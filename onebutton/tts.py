@@ -1,12 +1,14 @@
 """Speak text aloud, and stop when asked.
 
-Engines: say (macOS), piper (offline, good Spanish voices), espeak-ng, pyttsx3.
-Subprocess engines can be interrupted by the button; pyttsx3 cannot.
+Engines: say (macOS), sapi (Windows, via PowerShell and System.Speech), piper
+(offline, good Spanish voices), espeak-ng, pyttsx3. Subprocess engines can be
+interrupted by the button; pyttsx3 cannot.
 The screen always gets the text too.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -37,7 +39,9 @@ class Speaker:
         self._lock = threading.Lock()
         self._pyttsx3 = None
         if self.engine == "auto":
-            if shutil.which("say"):
+            if os.name == "nt" and shutil.which("powershell"):
+                self.engine = "sapi"
+            elif shutil.which("say"):
                 self.engine = "say"
             elif shutil.which("piper") and self.piper_model:
                 self.engine = "piper"
@@ -49,7 +53,7 @@ class Speaker:
                     self.engine = "pyttsx3"
                 except ImportError:
                     self.engine = "none"
-        self.interruptible = self.engine in ("say", "piper", "espeak")
+        self.interruptible = self.engine in ("say", "sapi", "piper", "espeak")
 
     # ---- public --------------------------------------------------------
     def say(self, text: str, show: bool = True, until: Callable[[], bool] | None = None,
@@ -71,6 +75,8 @@ class Speaker:
                 exe = _which("espeak-ng", "espeak") or "espeak"
                 cmd = [exe, "-s", str(self.rate), "-v", self.voice or self.lang, spoken]
                 return self._run(cmd, until)
+            if self.engine == "sapi":
+                return self._sapi(spoken, until)
             if self.engine == "piper":
                 return self._piper(spoken, until)
             if self.engine == "pyttsx3":
@@ -92,10 +98,19 @@ class Speaker:
                 self._proc.kill()
 
     # ---- engines -------------------------------------------------------
-    def _run(self, cmd: list[str], until: Callable[[], bool] | None) -> bool:
+    def _run(self, cmd: list[str], until: Callable[[], bool] | None, input_text: str | None = None) -> bool:
         with self._lock:
-            self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._proc = subprocess.Popen(
+                cmd, stdin=subprocess.PIPE if input_text is not None else None,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
             proc = self._proc
+        if input_text is not None and proc.stdin:
+            try:
+                proc.stdin.write(input_text.encode("utf-8"))
+                proc.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
         while proc.poll() is None:
             if until and until():
                 proc.kill()
@@ -103,6 +118,25 @@ class Speaker:
                 return False
             time.sleep(0.05)
         return True
+
+    _SAPI_SCRIPT = (
+        "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; "
+        "Add-Type -AssemblyName System.Speech; "
+        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$s.Rate = {rate}; "
+        "if ('{voice}') {{ try {{ $s.SelectVoice('{voice}') }} catch {{}} }} "
+        "else {{ try {{ $s.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, "
+        "[System.Speech.Synthesis.VoiceAge]::NotSet, 0, [System.Globalization.CultureInfo]'{culture}') }} catch {{}} }} "
+        "$s.Speak([Console]::In.ReadToEnd())"
+    )
+
+    def _sapi(self, text: str, until) -> bool:
+        """Windows speech through System.Speech. Text goes in on stdin so quoting never bites."""
+        rate = max(-10, min(10, round((self.rate - 170) / 15)))
+        culture = {"es": "es-MX", "en": "en-US"}.get(self.lang[:2], self.lang)
+        script = self._SAPI_SCRIPT.format(rate=rate, voice=self.voice.replace("'", ""), culture=culture)
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", script]
+        return self._run(cmd, until, input_text=text)
 
     def _piper(self, text: str, until) -> bool:
         player = _which("afplay", "paplay", "aplay", "ffplay")

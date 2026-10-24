@@ -21,6 +21,9 @@ Each release:
 3. `bin/onebutton-release vX.Y.Z`
 4. `git push origin main vX.Y.Z`
 
+The user's machine verifies with `ssh-keygen`, which Windows 10/11 ships as
+the optional "OpenSSH Client" feature (installed by default on recent builds).
+
 Test before pushing the tag: `python3 -m unittest discover -s tests`, then
 `python3 -m onebutton --dry-run` and walk through update and undo against a
 local clone with a signed test tag (see `tests/test_updater.py` for how the

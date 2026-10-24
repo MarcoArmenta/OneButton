@@ -18,7 +18,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 
 | Item | Notes |
 | --- | --- |
-| Computer | macOS or Linux (X11 for system-wide button capture; on Wayland use `button_source: terminal`). Windows is untested. |
+| Computer | Windows 10/11, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
 | Microphone | Any USB microphone placed near the user. |
 | One accessible button | A USB switch that sends the space bar. Most "big button" switches do this out of the box or with an adapter. |
 | Screen | Placed where the user can read it. Large font. |
@@ -29,15 +29,21 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 One command, run once. It needs git, Python 3.10+, and Claude Code already
 installed and logged in.
 
+Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.ps1 | iex
+```
+
+macOS or Linux:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.sh | bash
 ```
 
-Then start it:
-
-```bash
-~/OneButton/bin/onebutton
-```
+The Windows installer puts an "OneButton" shortcut on the Desktop and in the
+Startup folder, so it starts with the computer. On macOS and Linux start it
+with `~/OneButton/bin/onebutton`.
 
 A full step-by-step guide in Spanish, written for non-technical helpers, is in
 [docs/guia-ayudante.md](docs/guia-ayudante.md).
@@ -105,10 +111,10 @@ See [modules/README.md](modules/README.md).
 ## Repository layout
 
 ```
-onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS
+onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS, launcher
 claude/         CLAUDE.md rules installed into the workspace, and the tool allow list
-bin/            onebutton (start, auto-restart) and onebutton-release (maintainer)
-bootstrap/      install.sh and allowed_signers
+bin/            onebutton (macOS/Linux), onebutton.cmd (Windows), onebutton-release (maintainer)
+bootstrap/      install.ps1, install.sh and allowed_signers
 docs/           helper guide (Spanish), security model, release process
 tests/          unit tests for the parts that run without audio hardware
 local/          git-ignored: config.yaml, allowed_signers, state.json, logs

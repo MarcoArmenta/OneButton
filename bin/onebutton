@@ -1,31 +1,7 @@
 #!/usr/bin/env bash
-# Start the OneButton loop. Restarts it if it ever dies, speaking a short status line first.
-set -u
+# Start OneButton (macOS, Linux). The Python launcher restarts the loop after updates or crashes.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export ONEBUTTON_HOME="$HERE"
 PY="$HERE/.venv/bin/python"
 [ -x "$PY" ] || PY=python3
-
-say_status() {
-  if command -v say >/dev/null 2>&1; then say "$1";
-  elif command -v espeak-ng >/dev/null 2>&1; then espeak-ng -v es "$1";
-  elif command -v espeak >/dev/null 2>&1; then espeak -v es "$1"; fi
-  echo "$1"
-}
-
-if [ "${1:-}" != "--no-restart" ]; then
-  while true; do
-    "$PY" -m onebutton "$@"
-    rc=$?
-    [ "$rc" -eq 0 ] && exit 0
-    if [ "$rc" -eq 3 ]; then
-      say_status "Reiniciando con la nueva versión."
-    else
-      say_status "OneButton se reinició. Espera un momento."
-    fi
-    sleep 3
-  done
-else
-  shift
-  exec "$PY" -m onebutton "$@"
-fi
+exec "$PY" -m onebutton.launcher "$@"

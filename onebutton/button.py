@@ -5,8 +5,9 @@ Events are put on a queue as "short" or "long".
 
 Two sources, chosen by `button_source` in the config:
 
-- global: pynput listens system-wide. Needs Input Monitoring permission on
-  macOS and X11 on Linux (Wayland does not allow global key capture).
+- global: pynput listens system-wide. Works out of the box on Windows. Needs
+  Input Monitoring permission on macOS and X11 on Linux (Wayland does not
+  allow global key capture).
 - terminal: the key is read from the terminal, which must stay focused. Works
   everywhere, needs no permissions. A held key auto-repeats, so a burst of
   repeats within a short window counts as a long press.
@@ -111,6 +112,9 @@ class Button:
             if not drain_only:
                 raise RuntimeError("la terminal no es interactiva; no puedo leer el botón")
             return
+        if os.name == "nt":
+            self._start_terminal_windows(drain_only)
+            return
         import termios
         import tty
 
@@ -147,6 +151,41 @@ class Button:
                 elif burst_start is not None:
                     self.events.put(SHORT)
                     burst_start, count = None, 0
+
+        threading.Thread(target=reader, daemon=True).start()
+
+    def _start_terminal_windows(self, drain_only: bool) -> None:
+        """Same burst logic as the POSIX reader, on top of msvcrt. No echo, no Enter needed."""
+        import msvcrt
+
+        target = " " if self.key_name == "space" else self.key_name[:1]
+
+        def reader():
+            burst_start = None
+            count = 0
+            while True:
+                now = time.monotonic()
+                if msvcrt.kbhit():
+                    ch = msvcrt.getwch()
+                    if drain_only or ch != target:
+                        continue
+                    if burst_start is None:
+                        burst_start, count = now, 1
+                    else:
+                        count += 1
+                    if count >= BURST_COUNT:
+                        self.events.put(LONG)
+                        end = now + 0.8
+                        while time.monotonic() < end:
+                            while msvcrt.kbhit():
+                                msvcrt.getwch()
+                            time.sleep(0.02)
+                        burst_start, count = None, 0
+                elif burst_start is not None and now - burst_start >= BURST_WINDOW:
+                    self.events.put(SHORT)
+                    burst_start, count = None, 0
+                else:
+                    time.sleep(0.01)
 
         threading.Thread(target=reader, daemon=True).start()
 

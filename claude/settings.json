@@ -5,7 +5,7 @@
       "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)",
       "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)", "Bash(python3:*)", "Bash(python:*)",
       "Bash(pdflatex:*)", "Bash(latexmk:*)", "Bash(pandoc:*)",
-      "Bash(sage:*)", "Bash(gap:*)", "Bash(open:*)", "Bash(xdg-open:*)"
+      "Bash(sage:*)", "Bash(gap:*)", "Bash(open:*)", "Bash(xdg-open:*)", "Bash(start:*)", "Bash(explorer:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)", "Bash(sudo:*)", "Bash(curl:*)", "Bash(wget:*)",

@@ -9,6 +9,7 @@ never hang waiting for a click. A turn can be cancelled from another thread.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import threading
 import time
@@ -23,7 +24,8 @@ MSG_LOGIN = "Parece que hay que iniciar sesión en Claude Code otra vez. Hace fa
 
 class Agent:
     def __init__(self, cfg: dict):
-        self.bin = cfg["claude_bin"]
+        # On Windows the entry point is claude.cmd; Popen only finds it through which().
+        self.bin = shutil.which(cfg["claude_bin"]) or cfg["claude_bin"]
         self.mode = cfg["permission_mode"]
         self.timeout = int(cfg["claude_timeout"])
         self.max_turns = int(cfg["max_turns"])
@@ -34,15 +36,23 @@ class Agent:
         self._lock = threading.Lock()
         self.cancelled = False
 
+    def _settings_file(self) -> str:
+        """Write the effective settings to local/ and return the path. A file survives any shell's quoting."""
+        LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+        target = LOCAL_DIR / "claude-settings.json"
+        target.write_text(self._settings_json(), encoding="utf-8")
+        return str(target)
+
     def _settings_json(self) -> str:
         """Allow list from claude/settings.json plus absolute deny rules for local/ and the repo code."""
         data = {"permissions": {"allow": [], "deny": []}}
         if self.settings.exists():
             data = json.loads(self.settings.read_text(encoding="utf-8"))
         deny = data.setdefault("permissions", {}).setdefault("deny", [])
-        for pattern in (f"Read(//{LOCAL_DIR}/**)", f"Edit(//{LOCAL_DIR}/**)",
-                        f"Edit(//{REPO_DIR}/onebutton/**)", f"Edit(//{REPO_DIR}/claude/**)",
-                        f"Edit(//{REPO_DIR}/modules/**)"):
+        local, repo = LOCAL_DIR.as_posix(), REPO_DIR.as_posix()
+        for pattern in (f"Read(//{local}/**)", f"Edit(//{local}/**)",
+                        f"Edit(//{repo}/onebutton/**)", f"Edit(//{repo}/claude/**)",
+                        f"Edit(//{repo}/modules/**)"):
             if pattern not in deny:
                 deny.append(pattern)
         return json.dumps(data)
@@ -59,7 +69,7 @@ class Agent:
             "--output-format", "text",
             "--permission-mode", self.mode,
             "--max-turns", str(self.max_turns),
-            "--settings", self._settings_json(),
+            "--settings", self._settings_file(),
         ]
         if not self.first_turn:
             cmd.append("--continue")
