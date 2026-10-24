@@ -1,0 +1,7 @@
+# Everything personal lives here and never enters the repo.
+local/
+workspace/
+*.pyc
+__pycache__/
+.venv/
+*.wav

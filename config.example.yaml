@@ -1,0 +1,34 @@
+# OneButton configuration. Copy to local/config.yaml and edit.
+# Nothing in this file is secret, but local/config.yaml is still git-ignored.
+
+language: es                 # Whisper language code: es, en, ...
+button_key: space            # Key the USB switch sends. "space" is the usual one.
+silence_timeout: 90          # Seconds of silence before a recording stops on its own.
+max_recording: 600           # Hard cap in seconds for a single utterance.
+sample_rate: 16000
+whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish on a CPU.
+whisper_device: auto         # auto, cpu, cuda
+
+# Voice words. Two syllables are recognised far more reliably than "sí" alone.
+confirm_words: ["adelante", "sí adelante", "confirmo"]
+cancel_words: ["cancela", "cancelar", "no", "para"]
+update_words: ["actualiza", "actualizar"]
+undo_words: ["deshacer", "deshaz"]
+repeat_words: ["repite", "repítelo"]
+
+# Speech output.
+tts: auto                    # auto, say (macOS), espeak, pyttsx3, none
+tts_voice: ""                # Leave empty for the system default. On macOS try "Paulina" or "Jorge".
+tts_rate: 170
+
+# Screen.
+font_size: 28                # Terminal font size the helper sets. Informational, used by the install guide.
+
+# Claude Code.
+claude_bin: claude
+permission_mode: acceptEdits # acceptEdits is safe: tools outside the allow list are denied, not prompted.
+claude_timeout: 600          # Seconds before a single turn is abandoned and reported aloud.
+max_turns: 30
+
+# Updates. The updater refuses anything that is not a tag signed by a key in local/allowed_signers.
+repo_url: https://github.com/MarcoArmenta/OneButton.git

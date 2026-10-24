@@ -1,0 +1,13 @@
+# SSH public keys allowed to sign OneButton releases, one per line, in the
+# format git expects for gpg.ssh.allowedSignersFile:
+#
+#   <email> namespaces="git" <key-type> <base64-key>
+#
+# This file is copied to local/allowed_signers ONCE by bootstrap/install.sh and
+# is never touched by updates. Replace the placeholder below with the real key
+# before the first install; the updater refuses every release until then.
+#
+# Generate a key:   ssh-keygen -t ed25519 -C onebutton-release -f ~/.ssh/onebutton_release
+# Configure git:    git config --global gpg.format ssh
+#                   git config --global user.signingkey ~/.ssh/onebutton_release.pub
+# Print the line:   echo "marco@example.com namespaces=\"git\" $(cat ~/.ssh/onebutton_release.pub)"

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Maintainer only. Cut a signed release tag: bin/onebutton-release v0.2.0
+# Requires: git configured with gpg.format=ssh and user.signingkey set to the key in bootstrap/allowed_signers.
+set -euo pipefail
+TAG="${1:?usage: onebutton-release vX.Y.Z}"
+[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag must look like v1.2.3"; exit 1; }
+grep -q "^## \[\?$TAG" CHANGELOG.md || { echo "CHANGELOG.md has no section for $TAG"; exit 1; }
+[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "release from main only"; exit 1; }
+git diff --quiet || { echo "working tree not clean"; exit 1; }
+git tag -s "$TAG" -m "OneButton $TAG"
+git tag -v "$TAG"
+echo "Signed $TAG. Push with: git push origin main $TAG"
