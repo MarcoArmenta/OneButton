@@ -29,7 +29,9 @@ sesión otra vez, repite este paso.
 ## 3. Instalar OneButton
 
 **Windows.** Hace falta tener Git for Windows y Python (de python.org, marcando
-"Add python.exe to PATH" al instalar). Abre PowerShell y pega esta línea,
+"Add python.exe to PATH" al instalar). Ojo: en Windows 11 recién instalado,
+escribir `python` abre la Tienda en vez de dar error; el instalador lo detecta
+y te lo dirá. Abre PowerShell y pega esta línea,
 luego Intro:
 
 ```powershell
@@ -86,10 +88,12 @@ texto. Lo que más se cambia:
 
 - `silence_timeout`: segundos de silencio antes de que deje de grabar sola.
   Por defecto 90. Si la persona hace pausas largas, súbelo.
-- `tts_voice`: la voz. En Windows, `Microsoft Sabina Desktop` (español de
-  México) o `Microsoft Helena Desktop`; si no están, se añaden en
-  Configuración, Hora e idioma, Voz, "Agregar voces". En macOS prueba
-  `Paulina` o `Jorge`.
+- `tts_voice`: la voz. En Windows 11 lo mejor son las voces naturales:
+  Configuración, Accesibilidad, Narrador, "Agregar voces naturales", y elige
+  Español (México), Dalia o Jorge. OneButton las usa solas en cuanto están
+  instaladas; para forzar una, escribe aquí `Dalia` o `Jorge`. Sin voces
+  naturales usa la voz clásica del sistema (`Microsoft Sabina Desktop`), que
+  se entiende pero suena robótica. En macOS prueba `Paulina` o `Jorge`.
 - `button_key`: si el botón no manda espacio, escribe aquí la tecla.
 - `whisper_model`: `small` va bien. Si la computadora es potente, `medium`
   entiende mejor.

@@ -16,7 +16,18 @@ function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
 function Have($cmd) { return [bool](Get-Command $cmd -ErrorAction SilentlyContinue) }
 
 if (-not (Have git))    { Die "Falta Git. Instala Git for Windows desde https://git-scm.com/download/win y vuelve a ejecutar." }
-if (-not (Have python)) { Die "Falta Python. Instala desde https://www.python.org/downloads/ marcando 'Add python.exe to PATH'." }
+
+# On a fresh Windows 11, "python" is a Microsoft Store stub that opens the Store instead of failing.
+# Find a real interpreter: the py launcher first, then python, and demand a version string.
+$PythonExe = $null
+foreach ($cand in @(@{exe="py"; args=@("-3")}, @{exe="python"; args=@()}, @{exe="python3"; args=@()})) {
+  if (-not (Have $cand.exe)) { continue }
+  try {
+    $v = & $cand.exe @($cand.args) --version 2>&1
+    if ("$v" -match "^Python 3\.(\d+)" -and [int]$Matches[1] -ge 10) { $PythonExe = $cand; break }
+  } catch {}
+}
+if (-not $PythonExe) { Die "Falta Python 3.10 o más nuevo. Instala desde https://www.python.org/downloads/ marcando 'Add python.exe to PATH', cierra esta ventana y abre otra." }
 if (-not (Have claude)) { Die "No encuentro Claude Code en el PATH. Abre una terminal nueva y escribe 'claude' para comprobarlo." }
 if (-not (Have ssh-keygen)) {
   Write-Host "AVISO: falta ssh-keygen (Cliente OpenSSH). Las actualizaciones firmadas no funcionarán hasta activarlo en Configuración > Aplicaciones > Características opcionales." -ForegroundColor Yellow
@@ -31,7 +42,7 @@ git remote set-url origin $RepoUrl
 git fetch --tags --quiet origin
 
 Say "Creando entorno de Python"
-if (-not (Test-Path ".venv")) { python -m venv .venv }
+if (-not (Test-Path ".venv")) { & $PythonExe.exe @($PythonExe.args) -m venv .venv }
 $Py = Join-Path $Dest ".venv\Scripts\python.exe"
 & $Py -m pip install --quiet --upgrade pip
 & $Py -m pip install --quiet -r requirements.txt

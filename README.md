@@ -18,7 +18,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 
 | Item | Notes |
 | --- | --- |
-| Computer | Windows 10/11, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
+| Computer | Windows 11 (first target; natural voices recommended), Windows 10, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
 | Microphone | Any USB microphone placed near the user. |
 | One accessible button | A USB switch that sends the space bar. Most "big button" switches do this out of the box or with an adapter. |
 | Screen | Placed where the user can read it. Large font. |

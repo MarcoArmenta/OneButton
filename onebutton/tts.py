@@ -1,8 +1,10 @@
 """Speak text aloud, and stop when asked.
 
-Engines: say (macOS), sapi (Windows, via PowerShell and System.Speech), piper
-(offline, good Spanish voices), espeak-ng, pyttsx3. Subprocess engines can be
-interrupted by the button; pyttsx3 cannot.
+Engines: say (macOS), winrt (Windows 11 natural voices via PowerShell and
+Windows.Media.SpeechSynthesis), sapi (Windows, System.Speech), piper (offline,
+good Spanish voices on Linux), espeak-ng, pyttsx3. Subprocess engines can be
+interrupted by the button; pyttsx3 cannot. On Windows "auto" tries winrt and
+drops to sapi for the rest of the session if it fails.
 The screen always gets the text too.
 """
 
@@ -36,11 +38,12 @@ class Speaker:
         self.lang = cfg.get("language", "es")
         self.piper_model = cfg.get("piper_model") or ""
         self._proc: subprocess.Popen | None = None
+        self._last_rc = 0
         self._lock = threading.Lock()
         self._pyttsx3 = None
         if self.engine == "auto":
             if os.name == "nt" and shutil.which("powershell"):
-                self.engine = "sapi"
+                self.engine = "winrt"
             elif shutil.which("say"):
                 self.engine = "say"
             elif shutil.which("piper") and self.piper_model:
@@ -53,7 +56,7 @@ class Speaker:
                     self.engine = "pyttsx3"
                 except ImportError:
                     self.engine = "none"
-        self.interruptible = self.engine in ("say", "sapi", "piper", "espeak")
+        self.interruptible = self.engine in ("say", "winrt", "sapi", "piper", "espeak")
 
     # ---- public --------------------------------------------------------
     def say(self, text: str, show: bool = True, until: Callable[[], bool] | None = None,
@@ -75,6 +78,13 @@ class Speaker:
                 exe = _which("espeak-ng", "espeak") or "espeak"
                 cmd = [exe, "-s", str(self.rate), "-v", self.voice or self.lang, spoken]
                 return self._run(cmd, until)
+            if self.engine == "winrt":
+                ok = self._winrt(spoken, until)
+                if ok is None:            # engine failed, not interrupted: fall back for good
+                    print("[tts] voces naturales no disponibles; usando SAPI", file=sys.stderr)
+                    self.engine = "sapi"
+                    return self._sapi(spoken, until)
+                return ok
             if self.engine == "sapi":
                 return self._sapi(spoken, until)
             if self.engine == "piper":
@@ -117,6 +127,7 @@ class Speaker:
                 proc.wait()
                 return False
             time.sleep(0.05)
+        self._last_rc = proc.returncode
         return True
 
     _SAPI_SCRIPT = (
@@ -129,6 +140,44 @@ class Speaker:
         "[System.Speech.Synthesis.VoiceAge]::NotSet, 0, [System.Globalization.CultureInfo]'{culture}') }} catch {{}} }} "
         "$s.Speak([Console]::In.ReadToEnd())"
     )
+
+    # Windows.Media.SpeechSynthesis exposes the Windows 11 "Natural" voices (Dalia, Jorge for es-MX)
+    # that System.Speech cannot see. Windows PowerShell 5.1 can project WinRT types directly.
+    _WINRT_SCRIPT = (
+        "$ErrorActionPreference='Stop'; "
+        "[Console]::InputEncoding=[System.Text.Encoding]::UTF8; "
+        "$text=[Console]::In.ReadToEnd(); "
+        "Add-Type -AssemblyName System.Runtime.WindowsRuntime; "
+        "$null=[Windows.Media.SpeechSynthesis.SpeechSynthesizer,Windows.Media.SpeechSynthesis,ContentType=WindowsRuntime]; "
+        "$asTask=([System.WindowsRuntimeSystemExtensions].GetMethods()|?{{$_.Name -eq 'AsTask' -and "
+        "$_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'}})[0]; "
+        "$synth=New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer; "
+        "$all=[Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices; "
+        "$v=$null; if('{voice}'){{ $v=$all|?{{$_.DisplayName -like '*{voice}*'}}|select -First 1 }}; "
+        "if(-not $v){{ $v=$all|?{{$_.Language -like '{culture}*' -and $_.DisplayName -like '*Natural*'}}|select -First 1 }}; "
+        "if(-not $v){{ $v=$all|?{{$_.Language -like '{lang}*'}}|select -First 1 }}; "
+        "if($v){{ $synth.Voice=$v }}; "
+        "$synth.Options.SpeakingRate={rate}; "
+        "$op=$synth.SynthesizeTextToStreamAsync($text); "
+        "$t=$asTask.MakeGenericMethod([Windows.Media.SpeechSynthesis.SpeechSynthesisStream]).Invoke($null,@($op)); "
+        "$t.Wait(-1)|Out-Null; $stream=$t.Result; "
+        "$in=[System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream.GetInputStreamAt(0)); "
+        "$wav=[System.IO.Path]::GetTempFileName()+'.wav'; "
+        "$fs=[System.IO.File]::Create($wav); $in.CopyTo($fs); $fs.Close(); "
+        "(New-Object System.Media.SoundPlayer $wav).PlaySync(); Remove-Item $wav -ErrorAction SilentlyContinue"
+    )
+
+    def _winrt(self, text: str, until) -> bool | None:
+        """True spoken, False interrupted, None failed (caller falls back to SAPI)."""
+        rate = max(0.5, min(3.0, round(self.rate / 170, 2)))
+        culture = {"es": "es-MX", "en": "en-US"}.get(self.lang[:2], self.lang)
+        script = self._WINRT_SCRIPT.format(voice=self.voice.replace("'", ""), culture=culture,
+                                           lang=self.lang[:2], rate=rate)
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", script]
+        ok = self._run(cmd, until, input_text=text)
+        if ok and self._last_rc != 0:
+            return None
+        return ok
 
     def _sapi(self, text: str, until) -> bool:
         """Windows speech through System.Speech. Text goes in on stdin so quoting never bites."""
