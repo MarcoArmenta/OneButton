@@ -21,7 +21,7 @@ import time
 from . import __version__, auth, commands, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
-                       CONFIRMING, IDLE, RECORDING, THINKING, help_text, interpret)
+                       CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
 
 BANNER = "OneButton listo. Pulsa el botón y habla. Pulsa otra vez cuando termines."
 
@@ -38,6 +38,10 @@ class Loop:
         self.progress_interval = float(cfg.get("progress_interval", 45))
         self.log_path = LOCAL_DIR / "session.log" if cfg.get("log_transcripts", True) else None
         self.modules: list[subprocess.Popen] = []
+        self.board = None
+        if "maths-screen" in (cfg.get("modules") or []):
+            from .board import Board
+            self.board = Board(int(cfg.get("pizarra_port", 8765)))
         install_rules(list(cfg.get("modules") or []))
         self.two_buttons = bool(cfg.get("button2_key"))
         if dry_run:
@@ -106,7 +110,10 @@ class Loop:
             if act == A_TALK:
                 return self.record_and_transcribe()
             if act == A_HELP:
-                self.say(help_text(self.two_buttons))
+                if self.two_buttons and self.board and self.board.available():
+                    self.board_mode()
+                else:
+                    self.say(help_text(self.two_buttons))
             elif act == A_REPEAT:
                 self.say(self.last_reply or "No hay nada que repetir todavía.", clean=True)
 
@@ -158,6 +165,57 @@ class Loop:
                 if heard is None:
                     return False
                 return commands.classify(heard, self.cfg, awaiting_confirmation=True).kind == commands.CONFIRM
+
+    # ---- board mode --------------------------------------------------------
+    def board_mode(self) -> None:
+        """Hold of button 2 with the blackboard running: buttons and voice drive the board.
+
+        Button 2 short steps, button 1 held selects, button 1 short records a
+        number, a menu word or content. Button 2 held leaves. The page does the
+        rest and speaks for itself; see modules/maths-screen/board.js.
+        """
+        self.say("Pizarra.")
+        self.log("SISTEMA", "modo pizarra")
+        self.board.post({"type": "enter"})
+        try:
+            while True:
+                ev = self.button.wait()
+                if ev is None:
+                    continue
+                button, gesture = ev
+                if (button, gesture) == (NO, LONG):
+                    return
+                if (button, gesture) == (TALK, SHORT):
+                    text = self.record_and_transcribe()
+                    if text is None:
+                        continue
+                    if commands.normalize(text) in ("salir", "sal", "listo", "terminar"):
+                        return
+                    self.board_voice(text)
+                else:
+                    self.board.post({"type": "button", "button": button, "gesture": gesture})
+        finally:
+            self.board.post({"type": "exit"})
+            self.say("Salgo de la pizarra.")
+
+    def board_voice(self, text: str) -> None:
+        st = self.board.state()
+        if st.get("awaiting"):
+            self.dictate_latex(text)
+            return
+        seq = self.board.post({"type": "voice", "text": text})
+        st = self.board.wait_handled(seq)
+        if st.get("handled") is False and st.get("selected"):
+            self.dictate_latex(text)  # free-form edit of the selection
+
+    def dictate_latex(self, text: str) -> None:
+        print("🤖 Convirtiendo a LaTeX...", flush=True)
+        latex = self.agent.convert_latex(text)
+        if not latex:
+            self.say("No pude convertirlo. Dilo otra vez.")
+            return
+        self.log("LATEX", f"{text} -> {latex}")
+        self.board.post({"type": "latex", "text": latex})
 
     # ---- handlers --------------------------------------------------------
     def handle_update(self) -> None:

@@ -56,7 +56,7 @@ hold of about 1.5 seconds.
 | | Button 1 (stronger hand) | Button 2 |
 | --- | --- | --- |
 | Press | Talk. Press to start, press again to stop. Also stops speech. | No. Cancel a recording, a task, or a question. Also stops speech. |
-| Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Help: read the controls aloud. |
+| Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the maths board for editing (or read the controls aloud if the board is off). |
 
 With a single button, a hold cancels (or explains the controls when idle),
 and yes is the spoken word "adelante".
@@ -109,6 +109,9 @@ extends the base rules. Turn one on by listing it under `modules:` in
 - `maths-screen/` **(shipped)**: a blackboard in the browser. The assistant
   writes Markdown with LaTeX to a file; the page re-renders it live in large
   type, fully offline. Formulas are spoken in words and shown as symbols.
+  Holding button 2 opens editing: every part of the last formula gets a
+  number, and "barra en el siete" or "subíndice en el dos" edits it on the
+  spot. See [modules/maths-screen/README.md](modules/maths-screen/README.md).
 - `scribe/`: idea in, full text out, for papers and books
 - `switch-scanning/`: on-screen menu driven by the button alone
 - `computation/`: GAP/QPA, SageMath, QuiverLab

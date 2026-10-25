@@ -64,6 +64,30 @@ class Agent:
             if self._proc and self._proc.poll() is None:
                 self._proc.kill()
 
+    CONVERT_PROMPT = (
+        "Convierte esta expresión matemática dictada en español a LaTeX. "
+        "Responde únicamente con el LaTeX, sin delimitadores de dólar, sin comillas y sin explicación. "
+        "Si hay varias interpretaciones razonables, elige la más común en matemáticas.\n\n{text}"
+    )
+
+    def convert_latex(self, text: str) -> str:
+        """One-shot conversion in its own directory so it never becomes the --continue conversation."""
+        convert_dir = LOCAL_DIR / "convert"
+        convert_dir.mkdir(parents=True, exist_ok=True)
+        cmd = [self.bin, "-p", self.CONVERT_PROMPT.format(text=text), "--output-format", "text",
+               "--permission-mode", self.mode, "--max-turns", "1", "--settings", self._settings_file()]
+        try:
+            proc = subprocess.run(cmd, cwd=convert_dir, capture_output=True, text=True, timeout=90,
+                                  env=subprocess_env())
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return ""
+        out = (proc.stdout or "").strip().strip("`").strip()
+        if out.startswith("$$") and out.endswith("$$"):
+            out = out[2:-2].strip()
+        elif out.startswith("$") and out.endswith("$"):
+            out = out[1:-1].strip()
+        return out
+
     def ask(self, text: str) -> str:
         cmd = [
             self.bin, "-p", text,

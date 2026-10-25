@@ -25,6 +25,23 @@
   #bar.stale { background: #d9534f; }
   #empty { color: var(--muted); font-style: italic; }
   .fresh-mark { background: color-mix(in srgb, var(--accent) 18%, transparent); transition: background 2s; }
+
+  /* board mode panel */
+  body.board-active { padding-bottom: 52vh; }
+  #board-panel { display: none; position: fixed; left: 0; right: 0; bottom: 0; height: 48vh; background: var(--bg);
+    border-top: 3px solid var(--accent); box-shadow: 0 -8px 30px rgba(0,0,0,.15); padding: 10px 24px; overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif; }
+  #board-status { font-size: .8em; color: var(--muted); min-height: 1.4em; }
+  #board-hints { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 6px; max-height: 15vh; overflow-y: auto; padding-bottom: 4px; }
+  .hint { display: inline-flex; align-items: center; gap: 8px; padding: 2px 12px 2px 4px; border: 2px solid var(--rule); border-radius: 12px; }
+  .hint b { display: inline-block; min-width: 1.6em; text-align: center; background: var(--accent); color: #fff; border-radius: 8px; font-size: .8em; padding: 2px 4px; }
+  .hint.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .hint .katex { font-size: 1em; }
+  #board-menu { position: relative; height: 26vh; margin-top: 8px; }
+  .ring { position: absolute; inset: 1.2em 0; }
+  .ring-item { position: absolute; transform: translate(-50%, -50%); padding: .3em .9em; border-radius: 999px;
+    border: 2px solid var(--rule); background: var(--bg); color: var(--muted); font-size: .85em; white-space: nowrap; }
+  .ring-item.current { border-color: var(--accent); color: var(--fg); background: color-mix(in srgb, var(--accent) 16%, transparent); font-size: 1.05em; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -34,6 +51,7 @@
 <script src="vendor/marked.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="vendor/katex/contrib/auto-render.min.js"></script>
+<script src="board.js"></script>
 <script>
 (function () {
   var board = document.getElementById('board');
@@ -53,7 +71,15 @@
     }};
   }
 
-  function render(text) {
+  // Board mode asks for the same text with one formula span coloured.
+  window.renderBoardWithHighlight = function (text, sel) {
+    if (!sel) { render(text, true); return; }
+    var f = sel.f, h = sel.h;
+    var inner = window.BoardCore.highlight(f.inner, h, sel.color);
+    render(text.slice(0, f.start) + inner + text.slice(f.end), true);
+  };
+
+  function render(text, quiet) {
     if (!text.trim()) {
       board.innerHTML = '<p id="empty">Pizarra vacía. Pide algo con matemáticas y aparecerá aquí.</p>';
       return;
@@ -78,7 +104,7 @@
       });
     }
     var last = board.lastElementChild;
-    if (last) {
+    if (last && !quiet) {
       last.classList.add('fresh-mark');
       last.scrollIntoView({ block: 'end', behavior: 'smooth' });
       setTimeout(function () { last.classList.remove('fresh-mark'); }, 1500);
@@ -88,16 +114,19 @@
   function tick() {
     fetch('/status', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
       failures = 0; bar.className = '';
+      if (window.BoardUI) BoardUI.pollEvents(s.seq || 0);
       if (s.mtime === lastMtime) return;
       lastMtime = s.mtime;
       return fetch('/pizarra.md', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
         if (t === lastText) return;
-        lastText = t; render(t);
+        lastText = t;
+        if (window.BoardUI) BoardUI.setText(t);
+        if (!window.BoardUI || BoardUI.state.mode === 'idle') render(t);
         bar.className = 'fresh'; setTimeout(function () { bar.className = ''; }, 600);
       });
     }).catch(function () { if (++failures > 3) bar.className = 'stale'; });
   }
-  tick(); setInterval(tick, 700);
+  tick(); setInterval(tick, 300);
 })();
 </script>
 </body>

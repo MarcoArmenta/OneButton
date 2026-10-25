@@ -42,6 +42,7 @@ max_turns: 30
 
 # Modules. Each adds rules and, sometimes, a helper that starts with the loop.
 modules: []                  # e.g. [maths-screen]
+pizarra_port: 8765           # Local port of the blackboard page.
 
 # Updates. The updater refuses anything that is not a tag signed by a key in local/allowed_signers.
 repo_url: https://github.com/MarcoArmenta/OneButton.git

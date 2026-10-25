@@ -35,6 +35,7 @@ DEFAULTS = {
     "progress_interval": 45,
     "log_transcripts": True,
     "modules": [],
+    "pizarra_port": 8765,
     "font_size": 28,
     "helper_name": "",
     "claude_bin": "claude",
