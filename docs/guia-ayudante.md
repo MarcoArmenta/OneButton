@@ -139,6 +139,12 @@ texto. Lo que más se cambia:
   del navegador con un panel por función; ponla a pantalla completa en la
   pantalla que la persona lee y deja el sonido del navegador encendido,
   porque la página habla por sí misma al leer y al editar.
+- Con `computadora` en la lista de módulos, puede manejar cualquier
+  programa: "ve a Chrome", "números" (pone un número en cada botón de la
+  ventana), "pulsa el siete", "escribe ...", "cierra esta ventana", "apaga la
+  computadora" (pregunta antes). Lo que no sea una orden corta se lo pide a
+  Claude, que mira la pantalla y lo hace paso a paso, y pregunta antes de
+  cualquier cosa irreversible. Nunca escribe contraseñas: eso lo haces tú.
 - Para que aprenda el estilo de la persona al escribir: copia sus artículos
   (PDF, TeX o texto) en `OneButton\workspace\estilo\corpus\` y que diga
   "aprende mi estilo". Esos archivos no salen de la computadora.

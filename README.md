@@ -79,6 +79,10 @@ and yes is the spoken word "adelante".
 - During a long task it says "sigo en ello" now and then; a press of button
   1 gets the same reassurance.
 - **"Repite"** reads the last reply again.
+- **"Ve a Chrome"**, **"números"**, **"pulsa el siete"**, **"escribe ..."**,
+  **"cierra esta ventana"** control any application directly when the
+  `computadora` module is on. "Qué hay en pantalla" or any multi-step task
+  goes to Claude, which looks at the screen and acts.
 - **"Pizarra"**, **"escritorio"**, **"conversación"** switch panels on the
   screen. **"Lee"** or **"lee el cinco"** reads the current panel aloud from
   the page, block by block; button 2 skips, a number jumps.
@@ -145,7 +149,11 @@ extends the base rules. Turn one on by listing it under `modules:` in
   style is a profile extracted from the author's own papers and grown from
   every spoken correction; no fine-tuning. See
   [modules/scribe/README.md](modules/scribe/README.md).
-- `switch-scanning/`: on-screen menu driven by the button alone
+- `computadora/` **(shipped)**: the whole computer. Window switching,
+  numbered labels on any app's controls, a click grid, keys, typing, volume
+  and power, by voice or by scanning with the two buttons; and for anything
+  else Claude looks at the screen and acts, under strict rules. See
+  [modules/computadora/README.md](modules/computadora/README.md).
 - `computation/`: GAP/QPA, SageMath, QuiverLab
 - `email-to-video/`: email conversation to AI video
 

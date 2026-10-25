@@ -25,7 +25,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import __version__, auth, commands, hardware, updater
+from . import __version__, auth, commands, desktop_commands, hardware, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
@@ -52,6 +52,9 @@ class Loop:
         self.panels = ["conversacion"] + (["pizarra"] if "maths-screen" in mods else []) + \
             (["escritorio"] if "scribe" in mods else [])
         self.conversation = WORKSPACE_DIR / "conversacion.md"
+        self.desktop_enabled = "computadora" in mods
+        self.desktop_py = Path(__file__).resolve().parent.parent / "modules" / "computadora" / "desktop.py"
+        self.overlay: subprocess.Popen | None = None
         install_rules(mods)
         self.two_buttons = bool(cfg.get("button2_key"))
         if dry_run:
@@ -299,6 +302,189 @@ class Loop:
         self.log("LATEX", f"{text} -> {latex}")
         self.screen.post({"type": "latex", "text": latex})
 
+    # ---- the computer ------------------------------------------------------
+    def desktop(self, *args: str) -> dict:
+        try:
+            proc = subprocess.run([sys.executable, str(self.desktop_py), *args], capture_output=True, text=True, timeout=30)
+            return json.loads(proc.stdout.strip() or "{}")
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
+            return {"error": str(exc)}
+
+    def desktop_act(self, act: dict) -> None:
+        a = act["action"]
+        if a == "windows":
+            wins = self.desktop("windows")
+            titles = [w["title"] for w in wins if isinstance(w, dict)][:8] if isinstance(wins, list) else []
+            self.say("Ventanas: " + ". ".join(titles) + "." if titles else "No veo ventanas.")
+        elif a in ("focus", "open"):
+            r = self.desktop(a, act["target"])
+            self.say(r.get("focused") or r.get("opened") or r.get("error", "Hecho."))
+        elif a in ("minimize", "maximize"):
+            self.say(self.desktop(a).get("error", "Hecho."))
+        elif a == "key":
+            self.say(self.desktop("key", act["keys"]).get("error", "Hecho."), clean=True)
+        elif a == "type":
+            self.say(self.desktop("type", act["text"]).get("error", "Escrito."))
+        elif a == "scroll":
+            self.desktop("scroll", act["dir"], str(act["n"]))
+        elif a == "volume":
+            self.say(self.desktop("volume", act["what"]).get("error", ""))
+        elif a == "screenshot":
+            r = self.desktop("screenshot")
+            self.say("Captura guardada." if "path" in r else r.get("error", ""))
+        elif a == "describe":
+            r = self.desktop("screenshot")
+            if "path" in r:
+                self.handle_claude(f"Lee la captura de pantalla en {r['path']} y describe en tres frases qué hay en pantalla y qué se puede hacer.")
+        elif a == "right_click":
+            self.desktop("click", "here", "right")
+        elif a == "double_click":
+            self.desktop("click", "here", "double")
+        elif a == "power":
+            names = {"shutdown": "apagar la computadora", "restart": "reiniciarla", "sleep": "suspenderla"}
+            if self.confirm(f"Voy a {names[act['what']]}. ¿Lo hago?"):
+                self.say("Hasta luego.")
+                self.desktop("power", act["what"])
+            else:
+                self.say("Cancelado.")
+        elif a == "click_number":
+            labels = getattr(self, "_labels", None) or self.desktop("elements")
+            self.click_label(labels if isinstance(labels, list) else [], act["n"])
+        elif a == "overlay":
+            self.overlay_mode()
+        elif a == "grid":
+            self.grid_mode()
+
+    def click_label(self, labels: list, n: int) -> None:
+        for lab in labels:
+            if lab.get("n") == n:
+                self.desktop("click", str(lab["x"]), str(lab["y"]))
+                self.say(lab.get("name") or str(n))
+                return
+        self.say(f"No hay {n}. Hay {len(labels)}.")
+
+    # ---- overlay (numbers) and grid: choose by number, or scan with the buttons ----
+    def overlay_send(self, msg: dict) -> None:
+        if self.overlay is None or self.overlay.poll() is not None:
+            script = self.desktop_py.parent / "overlay.py"
+            try:
+                self.overlay = subprocess.Popen([sys.executable, str(script)], stdin=subprocess.PIPE, text=True,
+                                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError:
+                return
+        try:
+            self.overlay.stdin.write(json.dumps(msg) + "\n")
+            self.overlay.stdin.flush()
+        except (OSError, ValueError):
+            self.overlay = None
+
+    def overlay_close(self) -> None:
+        if self.overlay and self.overlay.poll() is None:
+            try:
+                self.overlay.stdin.close()
+            except OSError:
+                pass
+            self.overlay.wait(2)
+        self.overlay = None
+        self._labels = None
+
+    def overlay_mode(self) -> None:
+        labels = self.desktop("elements")
+        if not isinstance(labels, list) or not labels:
+            self.say("No encuentro controles en esta ventana. Prueba con la rejilla.")
+            return
+        self._labels = labels
+        sel = 0
+        self.overlay_send({"labels": labels, "selected": None})
+        self.say(f"{len(labels)} números. Di uno, o pulsa el dos para recorrer y mantén el uno para pulsar.")
+        try:
+            while True:
+                ev = self.button.wait()
+                if ev is None:
+                    continue
+                button, gesture = ev
+                if (button, gesture) == (NO, LONG):
+                    return
+                if (button, gesture) == (NO, SHORT):
+                    sel = sel % len(labels) + 1
+                    self.overlay_send({"labels": labels, "selected": sel})
+                    self.speaker.say(labels[sel - 1].get("name") or str(sel), show=False)
+                elif (button, gesture) == (TALK, LONG) and sel:
+                    self.overlay_close()
+                    self.click_label(labels, sel)
+                    return
+                elif (button, gesture) == (TALK, SHORT):
+                    text = self.record_and_transcribe()
+                    if text is None:
+                        continue
+                    t = commands.normalize(text)
+                    if t in ("cancela", "cancelar", "salir", "quita", "no"):
+                        return
+                    n = desktop_commands.number(t.split())
+                    if n:
+                        self.overlay_close()
+                        self.click_label(labels, n)
+                        return
+                    self.say("Di un número, o 'cancela'.")
+        finally:
+            self.overlay_close()
+
+    def grid_mode(self) -> None:
+        shot = self.desktop("screenshot")
+        w, h = int(shot.get("width") or 1920), int(shot.get("height") or 1080)
+        rect = [0, 0, w, h]
+        sel = 0
+        self.overlay_send({"grid": rect, "selected": None})
+        self.say("Rejilla. Di un número del uno al nueve para acercar, tres veces para pulsar. Mantén el uno para pulsar donde está.")
+        try:
+            for _depth in range(4):
+                chosen = None
+                while chosen is None:
+                    ev = self.button.wait()
+                    if ev is None:
+                        continue
+                    button, gesture = ev
+                    if (button, gesture) == (NO, LONG):
+                        return
+                    if (button, gesture) == (NO, SHORT):
+                        sel = sel % 9 + 1
+                        self.overlay_send({"grid": rect, "selected": sel})
+                        self.speaker.say(str(sel), show=False)
+                    elif (button, gesture) == (TALK, LONG):
+                        if sel:
+                            chosen = sel
+                        else:
+                            self.overlay_close()
+                            self.desktop("click", str(rect[0] + rect[2] // 2), str(rect[1] + rect[3] // 2))
+                            return
+                    elif (button, gesture) == (TALK, SHORT):
+                        text = self.record_and_transcribe()
+                        if text is None:
+                            continue
+                        t = commands.normalize(text)
+                        if t in ("cancela", "cancelar", "salir", "no"):
+                            return
+                        if t in ("aqui", "pulsa", "clic", "click", "ahi"):
+                            self.overlay_close()
+                            self.desktop("click", str(rect[0] + rect[2] // 2), str(rect[1] + rect[3] // 2))
+                            return
+                        n = desktop_commands.number(t.split())
+                        if n and 1 <= n <= 9:
+                            chosen = n
+                        else:
+                            self.say("Del uno al nueve, o 'aquí'.")
+                r, c = divmod(chosen - 1, 3)
+                rect = [rect[0] + c * rect[2] // 3, rect[1] + r * rect[3] // 3, rect[2] // 3, rect[3] // 3]
+                sel = 0
+                if rect[2] < 40 or rect[3] < 40:
+                    break
+                self.overlay_send({"grid": rect, "selected": None})
+            self.overlay_close()
+            self.desktop("click", str(rect[0] + rect[2] // 2), str(rect[1] + rect[3] // 2))
+            self.say("Pulsado.")
+        finally:
+            self.overlay_close()
+
     # ---- handlers --------------------------------------------------------
     def handle_update(self) -> None:
         self.say("Buscando actualizaciones.")
@@ -343,6 +529,15 @@ class Loop:
     def handle_text(self, text: str) -> None:
         if self.screen_try(text):
             return
+        if self.desktop_enabled and not self.dry_run:
+            act = desktop_commands.parse(text)
+            if act:
+                self.log("EQUIPO", json.dumps(act, ensure_ascii=False))
+                self.desktop_act(act)
+                return
+        self.handle_claude(text)
+
+    def handle_claude(self, text: str) -> None:
         self.converse("Tú", text)
         if self.dry_run:
             reply = f"(simulado) Recibí: {text}"
