@@ -25,7 +25,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import __version__, auth, commands, updater
+from . import __version__, auth, commands, hardware, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
@@ -63,7 +63,9 @@ class Loop:
         from .stt import Transcriber
 
         self.button = Button({"talk": cfg["button_key"], "no": cfg.get("button2_key")},
-                             cfg.get("button_source", "auto"))
+                             cfg.get("button_source", "auto"),
+                             filters={"min_hold": float(cfg["press_min_hold"]), "bounce": float(cfg["press_bounce"]),
+                                      "refractory": float(cfg["press_refractory"]), "long_hold": float(cfg["long_hold"])})
         self.recorder = Recorder(cfg)
         self.transcriber = Transcriber(cfg)
         self.agent = Agent(cfg)
@@ -81,7 +83,10 @@ class Loop:
 
     def screen_look(self) -> dict:
         """Theme, layout and text size for the page. The "glasses" preset suits OLED display glasses."""
-        preset = self.cfg.get("screen_preset") or "monitor"
+        preset = self.cfg.get("screen_preset") or "auto"
+        if preset == "auto":
+            info = hardware.load() or {}
+            preset = info.get("suggested_preset") or hardware.suggest_preset(hardware.screens())
         look = {"monitor": {"theme": "auto", "layout": "tabs", "font_size": 28},
                 "glasses": {"theme": "glasses", "layout": "wide", "font_size": 30},
                 "tablet": {"theme": "auto", "layout": "tabs", "font_size": 24}}.get(preset, {})
@@ -378,7 +383,17 @@ class Loop:
         return result.get("reply", "")
 
     # ---- main ------------------------------------------------------------
+    def run_setup(self) -> None:
+        from . import setup
+        from .audio import Recorder
+        from .stt import Transcriber
+
+        setup.run(self.cfg, self.speaker, transcriber_factory=lambda c: self.transcriber, recorder_factory=Recorder)
+        sys.exit(3)  # the launcher restarts us with the new config
+
     def run(self) -> None:
+        if not self.dry_run and hardware.load() is None:
+            self.run_setup()
         if not self.dry_run:
             self.speaker.say("Un momento, escuchando el ruido de la sala.", show=False)
             self.recorder.calibrate()
@@ -407,6 +422,11 @@ class Loop:
                     self.handle_undo()
                 elif cmd.kind == commands.REPEAT:
                     self.say(self.last_reply or "No hay nada que repetir todavía.", clean=True)
+                elif cmd.kind == commands.SETUP:
+                    if self.dry_run:
+                        self.say("(simulado) configuración de botones")
+                    else:
+                        self.run_setup()
                 else:
                     self.handle_text(cmd.text)
         finally:
@@ -421,8 +441,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="Type instead of speaking; no audio, no Claude. For testing the loop.")
     ap.add_argument("--check-update", action="store_true", help="Print the newest verified release and exit.")
     ap.add_argument("--check-auth", action="store_true", help="Print Claude Code's sign-in status and exit.")
+    ap.add_argument("--setup", action="store_true", help="Run the voice-guided hardware setup and exit.")
+    ap.add_argument("--hardware", action="store_true", help="Print detected screens and microphones and exit.")
     args = ap.parse_args(argv)
     cfg = load()
+    if args.hardware:
+        print(json.dumps(hardware.detect(), indent=2, ensure_ascii=False))
+        return 0
+    if args.setup:
+        LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+        Loop(cfg).run_setup()
+        return 0
     if args.check_auth:
         st = auth.status(cfg["claude_bin"])
         print(json.dumps(st, indent=2))

@@ -36,6 +36,7 @@ class TerminalBurstTests(unittest.TestCase):
         import queue
         self.btn.events = queue.Queue()
         self.btn.keys = {"talk": "space", "no": "enter"}
+        self.btn.filters = {}
         self.inp = FakeInput()
         threading.Thread(target=self.btn._burst_reader,
                          args=(self.btn._char_map(), self.inp.available, self.inp.read, self.inp.swallow),

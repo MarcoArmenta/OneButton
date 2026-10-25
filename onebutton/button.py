@@ -25,6 +25,7 @@ import threading
 import time
 
 from .gestures import LONG, NO, SHORT, TALK
+from .presses import PressFilter
 
 LONG_PRESS_SECONDS = 1.5
 BURST_WINDOW = 0.7       # terminal mode: window after first keypress
@@ -34,10 +35,14 @@ _TERMINAL_CHARS = {"space": {" "}, "enter": {"\r", "\n"}, "tab": {"\t"}}
 
 
 class Button:
-    def __init__(self, keys: dict[str, str | None], source: str = "auto"):
-        """keys maps button name ("talk", "no") to a key name ("space", "enter", "a"); None disables."""
+    def __init__(self, keys: dict[str, str | None], source: str = "auto", filters: dict | None = None):
+        """keys maps button name ("talk", "no") to a key name ("space", "enter", "a"); None disables.
+
+        filters: min_hold, bounce, refractory, long_hold in seconds (see presses.py).
+        """
         self.events: queue.Queue[tuple[str, str]] = queue.Queue()
         self.keys = {name: k for name, k in keys.items() if k}
+        self.filters = dict(filters or {})
         self.source = source
         self._drain_only = False
         if source in ("auto", "global"):
@@ -79,40 +84,29 @@ class Button:
             return getattr(keyboard.Key, name, None) or keyboard.KeyCode.from_char(name)
 
         key_to_button = {to_key(k): name for name, k in self.keys.items()}
-        state = {name: {"down_at": None, "long_sent": False} for name in self.keys}
+        filters = {name: PressFilter(**self.filters) for name in self.keys}
         lock = threading.Lock()
 
         def on_press(k):
             name = key_to_button.get(k)
-            if name is None:
-                return
-            with lock:
-                st = state[name]
-                if st["down_at"] is None:          # ignore auto-repeat while held
-                    st["down_at"] = time.monotonic()
-                    st["long_sent"] = False
+            if name is not None:
+                with lock:
+                    filters[name].down(time.monotonic())
 
         def on_release(k):
             name = key_to_button.get(k)
-            if name is None:
-                return
-            with lock:
-                st = state[name]
-                down = st["down_at"]
-                st["down_at"] = None
-                if down is None or st["long_sent"]:
-                    return
-                self.events.put((name, LONG if time.monotonic() - down >= LONG_PRESS_SECONDS else SHORT))
-
-        def watcher():  # fire LONG as soon as the threshold is crossed, without waiting for release
-            while True:
-                time.sleep(0.1)
+            if name is not None:
                 with lock:
-                    for name, st in state.items():
-                        d = st["down_at"]
-                        if d is not None and not st["long_sent"] and time.monotonic() - d >= LONG_PRESS_SECONDS:
-                            st["long_sent"] = True
-                            self.events.put((name, LONG))
+                    filters[name].up(time.monotonic())
+
+        def watcher():  # the filter decides, every 20 ms, what the raw presses meant
+            while True:
+                time.sleep(0.02)
+                with lock:
+                    now = time.monotonic()
+                    for name, f in filters.items():
+                        for kind, _ in f.tick(now):
+                            self.events.put((name, kind))
 
         listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         listener.daemon = True
@@ -204,6 +198,8 @@ class Button:
     def _burst_reader(self, chars: dict[str, str], available, read_chars, swallow) -> None:
         """Per-button burst detection: one key within the window = short; a burst of repeats = long."""
         burst: dict[str, list] = {}  # name -> [start, count]
+        refractory = float(self.filters.get("refractory", 0.35))
+        last_emit = -1e9
         while True:
             now = time.monotonic()
             if available():
@@ -211,15 +207,19 @@ class Button:
                     name = chars.get(ch)
                     if name is None:
                         continue
+                    if name not in burst and now - last_emit < refractory:
+                        continue  # a tap right after an event is tremor, not intent
                     b = burst.setdefault(name, [now, 0])
                     b[1] += 1
                     if b[1] >= BURST_COUNT:
                         self.events.put((name, LONG))
+                        last_emit = now
                         burst.clear()
                         swallow(0.8)   # the rest of this read and the release tail are discarded
                         break
             for name in list(burst):
                 if now - burst[name][0] >= BURST_WINDOW:
                     self.events.put((name, SHORT))
+                    last_emit = now
                     burst.pop(name, None)
             time.sleep(0.01)

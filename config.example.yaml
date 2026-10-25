@@ -4,6 +4,11 @@
 language: es                 # Whisper language code: es, en, ...
 button_key: space            # Button 1, the stronger hand: talk. Key the USB switch sends; "space" is the usual one.
 button2_key: enter           # Button 2, optional: no / cancel. Set to null for a single-button setup.
+# Tremor filters (seconds). Raise min_hold and refractory if accidental presses get through.
+press_min_hold: 0.06         # Presses shorter than this are ignored.
+press_bounce: 0.15           # A release and re-press within this window is one hold continuing.
+press_refractory: 0.35       # After an event, presses in this window are ignored.
+long_hold: 1.5               # Held this long = long press. Lower it if holding is hard.
 button_source: auto          # auto, global (system-wide capture), terminal (terminal must stay focused)
 silence_timeout: 90          # Seconds of silence before a recording stops on its own.
 max_recording: 600           # Hard cap in seconds for a single utterance.
@@ -12,6 +17,8 @@ input_device: null           # Microphone name or index for sounddevice; null = 
 silence_rms: auto            # auto calibrates from room noise at startup; or a number such as 0.01.
 whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish on a CPU.
 whisper_device: auto         # auto, cpu, cuda
+vad_threshold: 0.35          # Lower (0.2) if a soft voice gets cut; raise (0.5) in a noisy room.
+whisper_prompt: "Matemáticas, álgebra, carcaj, representaciones, módulo, teorema, lema, demostración, adelante, actualiza, deshacer, pizarra, escritorio."
 
 # Voice words. Two syllables are recognised far more reliably than "sí" alone.
 confirm_words: ["adelante", "sí adelante", "confirmo"]

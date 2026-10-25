@@ -63,7 +63,14 @@ En Windows, comprueba además que las aplicaciones pueden usar el micrófono:
 Configuración, Privacidad y seguridad, Micrófono, "Permitir que las
 aplicaciones de escritorio accedan al micrófono" activado.
 
-## 4. Arrancar
+## 4. Arrancar y la primera vez
+
+La primera vez que arranca, OneButton no sabe qué hay conectado y lo
+pregunta en voz alta: pide pulsar el botón para hablar, luego el segundo
+botón si lo hay (si no, se espera y sigue), después pide decir "hola, me
+llamo..." para comprobar el micrófono, y mira qué pantalla hay. Guarda todo
+y se reinicia. Dura un minuto. Si cambia algo del equipo, la persona puede
+decir "configura los botones" y se repite.
 
 **Windows.** Doble clic en el acceso directo "OneButton" del Escritorio. El
 instalador también lo puso en la carpeta Inicio, así que arrancará solo al
@@ -138,7 +145,30 @@ texto. Lo que más se cambia:
 
 Después de cambiar algo, reinicia OneButton.
 
-## 6. Gafas de pantalla (Xreal, Viture y similares)
+## 6. Tumbado, y con párkinson
+
+José Antonio usa OneButton tumbado, y los movimientos involuntarios hacen
+que los botones se pulsen sin querer o que una pulsación larga se corte.
+OneButton lo tiene en cuenta, y hay cosas que ayudan desde fuera:
+
+- **Botones.** Fíjalos a algo que no se mueva (una tabla sobre la cama, un
+  brazo articulado), no sueltos sobre el colchón. Que sean grandes y de
+  recorrido corto. Una pulsación muy breve o un doble toque se ignoran; si
+  aun así se cuelan pulsaciones, sube `press_refractory` a `0.6` y
+  `press_min_hold` a `0.12` en la configuración. Si mantener pulsado un
+  segundo y medio le cuesta, baja `long_hold` a `1.0`.
+- **Micrófono.** La voz puede ser baja. Un micrófono de solapa o uno de
+  brazo a un palmo de la boca funciona mucho mejor que uno sobre la mesa.
+  OneButton sube el volumen de la voz baja antes de reconocerla; si aun así
+  corta frases, baja `vad_threshold` a `0.2`. Si la sala es ruidosa, súbelo a
+  `0.5`. En `whisper_prompt` puedes poner palabras que use mucho para que
+  las reconozca mejor.
+- **Pantalla.** Tumbado, un monitor en un brazo articulado sobre la cama, o
+  unas gafas de pantalla (siguiente apartado). Letra grande: `screen_font_size`.
+- **Días malos.** Todo funciona con un solo botón y la voz, y casi todo con
+  la voz sola. Que nadie se preocupe si un día no usa el segundo botón.
+
+## 7. Gafas de pantalla (Xreal, Viture y similares)
 
 Son unas gafas ligeras que se conectan por USB-C y hacen de monitor. Para
 José Antonio son mejores que un monitor fijo: la pantalla va con él.
@@ -160,7 +190,7 @@ José Antonio son mejores que un monitor fijo: la pantalla va con él.
   ojos y de cuello. Si se cansa, baja `screen_font_size` o vuelve a
   `screen_preset: monitor` en un monitor normal.
 
-## 7. Letra grande
+## 8. Letra grande
 
 Sube el tamaño de letra de la terminal a 28 o más. En Windows: Terminal de
 Windows, Configuración, Perfiles, Predeterminados, Apariencia, Tamaño de
@@ -168,11 +198,11 @@ fuente; si se abre la consola clásica, clic derecho en la barra de título,
 Propiedades, Fuente. En macOS: Terminal, Ajustes, Perfiles, Texto. En Linux
 depende del programa de terminal; suele estar en Preferencias.
 
-## 8. Si algo falla
+## 9. Si algo falla
 
-- **No responde al botón.** Comprueba qué tecla manda cada botón: abre un
-  editor de texto y púlsalos. El uno debe escribir un espacio y el dos debe
-  bajar de línea. Si es al revés, intercambia `button_key` y `button2_key`. En
+- **No responde al botón.** Di "configura los botones" (o ejecuta
+  `onebutton --setup` desde la terminal) y vuelve a registrarlos. Para ver
+  qué tecla manda cada botón, abre un editor de texto y púlsalos. En
   Windows no hace falta ningún permiso. En macOS, la Terminal necesita el permiso "Monitorización de entrada" en
   Privacidad y seguridad; si no quieres darlo, usa `button_source: terminal`.
 - **Corta a la persona a mitad de frase.** Sube `silence_timeout`. Si la sala
@@ -191,7 +221,7 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Una actualización rompió algo.** La persona puede decir "deshacer" y
   confirmar con "adelante". Vuelve a la versión anterior.
 
-## 9. Acceso remoto para quien mantiene OneButton
+## 10. Acceso remoto para quien mantiene OneButton
 
 Vale la pena instalar una vez un programa de escritorio remoto (Chrome
 Remote Desktop, RustDesk o similar) con acceso sin supervisión y una clave
@@ -199,7 +229,7 @@ que sólo tenga la persona que mantiene OneButton. Así, cualquier problema
 que necesite teclado se arregla desde lejos en minutos. Díselo a la persona
 que lo usa: debe saber que existe y cuándo se usa.
 
-## 10. Lo que no hace falta hacer nunca
+## 11. Lo que no hace falta hacer nunca
 
 - Crear cuentas nuevas.
 - Dar permisos en GitHub.

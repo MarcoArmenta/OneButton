@@ -11,9 +11,10 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-UPDATE, UNDO, REPEAT, CONFIRM, CANCEL, TEXT, EMPTY = (
-    "update", "undo", "repeat", "confirm", "cancel", "text", "empty",
+UPDATE, UNDO, REPEAT, SETUP, CONFIRM, CANCEL, TEXT, EMPTY = (
+    "update", "undo", "repeat", "setup", "confirm", "cancel", "text", "empty",
 )
+SETUP_WORDS = ["configura los botones", "configurar botones", "configura el equipo", "configuracion"]
 
 
 @dataclass(frozen=True)
@@ -63,4 +64,6 @@ def classify(transcript: str, cfg: dict, awaiting_confirmation: bool = False) ->
         return Command(UNDO)
     if _matches(t, cfg["repeat_words"]):
         return Command(REPEAT)
+    if _matches(t, cfg.get("setup_words") or SETUP_WORDS):
+        return Command(SETUP)
     return Command(TEXT, t)

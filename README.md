@@ -50,6 +50,13 @@ with `~/OneButton/bin/onebutton`.
 A full step-by-step guide in Spanish, written for non-technical helpers, is in
 [docs/guia-ayudante.md](docs/guia-ayudante.md).
 
+## First run
+
+The first time it starts, the loop asks aloud for the button he will talk
+with, then for a second button if there is one, checks the microphone by
+asking him to say his name, and looks at the screens. It writes what it
+found to the local config and restarts. "Configura los botones" repeats it.
+
 ## Daily use
 
 Each button has one meaning everywhere. Two gestures: a short press and a
@@ -64,6 +71,11 @@ With a single button, a hold cancels (or explains the controls when idle),
 and yes is the spoken word "adelante".
 
 - Pauses while speaking are fine, up to 90 seconds by default.
+- Tremor is filtered: taps too short to be deliberate, double taps, and a
+  hold that loses contact for a moment are all read as what was meant. The
+  thresholds are in the config.
+- A soft voice is normalised before recognition, and the recogniser can be
+  primed with the words he uses most.
 - During a long task it says "sigo en ello" now and then; a press of button
   1 gets the same reassurance.
 - **"Repite"** reads the last reply again.
