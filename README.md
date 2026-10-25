@@ -24,6 +24,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | Microphone | A wireless lapel microphone, or a desk microphone near the user. Display glasses do not provide one. |
 | One or two accessible buttons | USB switches that send the space bar (button 1, the stronger hand) and Enter (button 2). Most "big button" switch interfaces do this out of the box. One button is enough; the second adds yes and no without speech. |
 | Screen | A monitor, or USB-C display glasses (Xreal, Viture and similar), which the `glasses` preset is tuned for: true black, large type, all panels side by side. |
+| A way to unlock Windows without hands | Windows Hello face recognition with an infrared camera aimed at him, or Windows set to never ask for the password. OneButton cannot type into the lock screen, by design. See the helper guide. |
 | Claude Code subscription | Signed in once by the helper, then kept signed in with a long-lived token so nobody has to click "Authorize" again. See [docs/login.md](docs/login.md). |
 
 ## Install (for the helper)

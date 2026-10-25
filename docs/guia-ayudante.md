@@ -174,7 +174,40 @@ OneButton lo tiene en cuenta, y hay cosas que ayudan desde fuera:
 - **Días malos.** Todo funciona con un solo botón y la voz, y casi todo con
   la voz sola. Que nadie se preocupe si un día no usa el segundo botón.
 
-## 7. Gafas de pantalla (Xreal, Viture y similares)
+## 7. Desbloquear la computadora sin manos
+
+OneButton no puede desbloquear Windows: la pantalla de bloqueo está aislada
+de todos los programas, a propósito. Lo resuelve Windows:
+
+- **Lo mejor: reconocimiento facial de Windows Hello.** Hace falta una cámara
+  compatible con Windows Hello (con infrarrojos; muchos portátiles la traen,
+  y las externas cuestan poco). Colócala en el brazo del monitor o sobre la
+  cama, apuntando a su cara. Configuración, Cuentas, Opciones de inicio de
+  sesión, Reconocimiento facial. Desde entonces: pulsa el botón, la
+  computadora despierta, la cámara lo reconoce, y OneButton ya está en
+  marcha o arranca solo desde la carpeta Inicio.
+- **Si no hay cámara compatible: que no se bloquee.** En Opciones de inicio
+  de sesión, "Si has estado ausente, ¿cuándo debería Windows requerir que
+  vuelvas a iniciar sesión?" ponlo en Nunca. En Configuración, Sistema,
+  Energía, que no se suspenda sola o, si se suspende, que no pida
+  contraseña al volver. Quien entre en la habitación podrá usar la
+  computadora; en casa suele ser aceptable, y las cuentas en internet
+  siguen protegidas por sus propias contraseñas.
+
+Comprueba además tres cosas:
+
+- Que el botón pueda despertar la computadora: Administrador de
+  dispositivos, el teclado o dispositivo HID del botón, Propiedades,
+  Administración de energía, "Permitir que este dispositivo reactive el
+  equipo". Si no, al suspenderse nadie la despierta sin un teclado.
+- Que BitLocker no pida un PIN al arrancar. El cifrado sólo con TPM está
+  bien; un PIN de arranque dejaría la computadora parada en una pantalla que
+  él no puede responder.
+- Que tras una actualización de Windows, que reinicia sola, se llegue al
+  escritorio: con Windows Hello basta mirar; sin él, activa el inicio de
+  sesión automático.
+
+## 8. Gafas de pantalla (Xreal, Viture y similares)
 
 Son unas gafas ligeras que se conectan por USB-C y hacen de monitor. Para
 José Antonio son mejores que un monitor fijo: la pantalla va con él.
@@ -196,7 +229,7 @@ José Antonio son mejores que un monitor fijo: la pantalla va con él.
   ojos y de cuello. Si se cansa, baja `screen_font_size` o vuelve a
   `screen_preset: monitor` en un monitor normal.
 
-## 8. Letra grande
+## 9. Letra grande
 
 Sube el tamaño de letra de la terminal a 28 o más. En Windows: Terminal de
 Windows, Configuración, Perfiles, Predeterminados, Apariencia, Tamaño de
@@ -204,7 +237,7 @@ fuente; si se abre la consola clásica, clic derecho en la barra de título,
 Propiedades, Fuente. En macOS: Terminal, Ajustes, Perfiles, Texto. En Linux
 depende del programa de terminal; suele estar en Preferencias.
 
-## 9. Si algo falla
+## 10. Si algo falla
 
 - **No responde al botón.** Di "configura los botones" (o ejecuta
   `onebutton --setup` desde la terminal) y vuelve a registrarlos. Para ver
@@ -227,7 +260,7 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Una actualización rompió algo.** La persona puede decir "deshacer" y
   confirmar con "adelante". Vuelve a la versión anterior.
 
-## 10. Acceso remoto para quien mantiene OneButton
+## 11. Acceso remoto para quien mantiene OneButton
 
 Vale la pena instalar una vez un programa de escritorio remoto (Chrome
 Remote Desktop, RustDesk o similar) con acceso sin supervisión y una clave
@@ -235,7 +268,7 @@ que sólo tenga la persona que mantiene OneButton. Así, cualquier problema
 que necesite teclado se arregla desde lejos en minutos. Díselo a la persona
 que lo usa: debe saber que existe y cuándo se usa.
 
-## 11. Lo que no hace falta hacer nunca
+## 12. Lo que no hace falta hacer nunca
 
 - Crear cuentas nuevas.
 - Dar permisos en GitHub.
