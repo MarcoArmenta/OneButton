@@ -43,6 +43,10 @@ max_turns: 30
 # The screen: a local page with panels (conversation, maths board, manuscript). Always on.
 screen_port: 8765
 open_browser: true           # Open the page in the default browser at start.
+screen_preset: glasses       # monitor (tabs, light or dark with the system), glasses (black, all panels side by side), tablet
+screen_theme: auto           # override: auto, light, dark, glasses
+screen_layout: auto          # override: tabs, wide
+screen_font_size: auto       # override: pixels, e.g. 32
 
 # Modules. Each adds rules and a panel: maths-screen -> Pizarra, scribe -> Escritorio.
 modules: []                  # e.g. [maths-screen, scribe]

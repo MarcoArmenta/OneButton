@@ -79,6 +79,19 @@ class Loop:
         except OSError:
             pass
 
+    def screen_look(self) -> dict:
+        """Theme, layout and text size for the page. The "glasses" preset suits OLED display glasses."""
+        preset = self.cfg.get("screen_preset") or "monitor"
+        look = {"monitor": {"theme": "auto", "layout": "tabs", "font_size": 28},
+                "glasses": {"theme": "glasses", "layout": "wide", "font_size": 30},
+                "tablet": {"theme": "auto", "layout": "tabs", "font_size": 24}}.get(preset, {})
+        for key in ("theme", "layout", "font_size"):
+            if self.cfg.get(f"screen_{key}") not in (None, "", "auto"):
+                look[key] = self.cfg[f"screen_{key}"]
+        if look.get("theme") == "auto":
+            look.pop("theme")
+        return look
+
     def converse(self, who: str, text: str) -> None:
         """Append a turn to workspace/conversacion.md, which the screen shows in large type."""
         try:
@@ -140,7 +153,7 @@ class Loop:
                 if self.screen.available():
                     break
                 time.sleep(0.1)
-            self.screen.post({"type": "config", "panels": self.panels})
+            self.screen.post({"type": "config", "panels": self.panels, **self.screen_look()})
         for name in self.cfg.get("modules") or []:
             script = MODULES_DIR / name / "start.py"
             if script.exists():

@@ -39,8 +39,13 @@ async function waitFile(pred) {
   await p.waitForTimeout(800);
 
   // panels: config, conversation rendering, voice switching, ring menu
-  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"] }));
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"], theme: "glasses", layout: "wide", font_size: 30 }));
   assert.strictEqual(await p.locator("#tabs button").count(), 3);
+  assert.strictEqual(await p.locator(".panel:visible").count(), 3, "wide layout shows every panel");
+  assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(0, 0, 0)", "glasses theme is true black");
+  assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).fontSize), "30px");
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"], layout: "tabs" }));
+  assert.strictEqual(await p.locator(".panel:visible").count(), 1, "tabs layout shows one panel");
   fs.writeFileSync(path.join(ws, "conversacion.md"), "## 10:00 Tú\n\nhola\n\n## 10:00 Asistente\n\nHola, **José**. $x^2$\n\n");
   await p.waitForTimeout(900);
   assert.ok((await p.locator("#panel-conversacion .turn").count()) === 2, "conversation turns rendered");

@@ -21,9 +21,9 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | Item | Notes |
 | --- | --- |
 | Computer | Windows 11 (first target; natural voices recommended), Windows 10, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
-| Microphone | Any USB microphone placed near the user. |
+| Microphone | A wireless lapel microphone, or a desk microphone near the user. Display glasses do not provide one. |
 | One or two accessible buttons | USB switches that send the space bar (button 1, the stronger hand) and Enter (button 2). Most "big button" switch interfaces do this out of the box. One button is enough; the second adds yes and no without speech. |
-| Screen | Placed where the user can read it. Large font. |
+| Screen | A monitor, or USB-C display glasses (Xreal, Viture and similar), which the `glasses` preset is tuned for: true black, large type, all panels side by side. |
 | Claude Code subscription | Signed in once by the helper, then kept signed in with a long-lived token so nobody has to click "Authorize" again. See [docs/login.md](docs/login.md). |
 
 ## Install (for the helper)
@@ -113,6 +113,8 @@ whatever just changed: a reply shows the conversation, a formula written
 during a turn shows the board, a drafted paragraph shows the manuscript. It
 works with no internet, speaks for itself through the browser, and is driven
 by the same two buttons through the loop. The terminal is for the helper.
+Presets: `monitor` (tabs), `glasses` (black background, every panel side by
+side across a wide virtual display), `tablet`.
 
 ## Modules
 

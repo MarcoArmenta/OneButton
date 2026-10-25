@@ -22,6 +22,7 @@
   const S = {
     panels: ["conversacion", "pizarra", "escritorio"],
     panel: "conversacion",
+    layout: "tabs",
     mode: "idle",            // idle | menu | reading | board (board.js owns its own modes)
     ring: [], ringIndex: 0,
     docs: {},                // path -> text
@@ -124,6 +125,13 @@
     document.querySelectorAll("#panel-escritorio .block").forEach(b => b.classList.toggle("current", +b.dataset.n === i + 1));
     const cur = document.querySelector("#panel-escritorio .block.current");
     if (cur) cur.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
+  function applyLook(cfg) {
+    if (cfg.theme) document.documentElement.setAttribute("data-theme", cfg.theme);
+    if (cfg.font_size) document.documentElement.style.setProperty("--fs", cfg.font_size + "px");
+    if (cfg.layout) { S.layout = cfg.layout; document.body.classList.toggle("layout-wide", cfg.layout === "wide"); }
+    document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden-panel", !S.panels.includes(p.id.replace("panel-", ""))));
   }
 
   function showPanel(name, silent) {
@@ -267,7 +275,7 @@
 
   function handle(ev) {
     let handled = true;
-    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); renderTabs(); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
+    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); renderTabs(); applyLook(ev); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
     else if (ev.type === "panel") showPanel(ev.name);
     else if (ev.type === "menu") { if (S.mode === "board") { BoardUI.exit(); } if (S.mode === "reading") stopReading(""); openRing(); }
     else if (ev.type === "exit") { if (S.mode === "board") BoardUI.exit(); if (S.mode === "reading") stopReading(""); closeRing(); S.mode = "idle"; }

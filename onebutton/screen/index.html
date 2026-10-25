@@ -6,12 +6,15 @@
 <title>OneButton</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
-  :root { --bg: #fbfaf6; --fg: #1a1a1a; --muted: #6b6b6b; --accent: #2a5db0; --rule: #e3e0d6; --me: #eef3fb; }
+  :root { --fs: 28px; --bg: #fbfaf6; --fg: #1a1a1a; --muted: #6b6b6b; --accent: #2a5db0; --rule: #e3e0d6; --me: #eef3fb; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #14161a; --fg: #ececec; --muted: #9a9a9a; --accent: #8ab4ff; --rule: #2a2e35; --me: #1c2230; }
+    :root:not([data-theme="light"]) { --bg: #14161a; --fg: #ececec; --muted: #9a9a9a; --accent: #8ab4ff; --rule: #2a2e35; --me: #1c2230; }
   }
+  :root[data-theme="dark"] { --bg: #14161a; --fg: #ececec; --muted: #9a9a9a; --accent: #8ab4ff; --rule: #2a2e35; --me: #1c2230; }
+  /* glasses: true black is transparent on OLED display glasses, so panels float and the eyes rest */
+  :root[data-theme="glasses"] { --bg: #000000; --fg: #f2f2f2; --muted: #9a9a9a; --accent: #9cc2ff; --rule: #2b2b2b; --me: #141c2a; }
   html, body { margin: 0; background: var(--bg); color: var(--fg); }
-  body { font: 28px/1.55 Georgia, "Times New Roman", serif; }
+  body { font: var(--fs)/1.55 Georgia, "Times New Roman", serif; }
   #bar { position: fixed; top: 0; left: 0; right: 0; height: 6px; background: var(--rule); z-index: 5; }
   #bar.stale { background: #d9534f; }
   #tabs { position: fixed; top: 6px; left: 0; right: 0; display: flex; gap: 6px; padding: 8px 24px; background: var(--bg);
@@ -22,6 +25,12 @@
   main { padding: 96px 40px 60px; max-width: 1100px; margin: 0 auto; }
   .panel { display: none; }
   .panel.active { display: block; }
+  /* wide layout: every panel visible side by side; the active one is framed */
+  body.layout-wide main { max-width: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 24px; padding: 90px 24px 60px; height: 100vh; box-sizing: border-box; }
+  body.layout-wide .panel { display: block; overflow-y: auto; padding: 0 18px; border: 3px solid transparent; border-radius: 18px; }
+  body.layout-wide .panel.active { border-color: var(--accent); }
+  body.layout-wide .panel.hidden-panel { display: none; }
+  body.layout-wide #tabs { background: transparent; border: 0; }
   .empty { color: var(--muted); font-style: italic; }
   h1, h2, h3 { font-family: system-ui, -apple-system, sans-serif; line-height: 1.2; margin: 1.2em 0 .5em; }
   h2 { font-size: 1.2em; color: var(--accent); border-top: 2px solid var(--rule); padding-top: .8em; }

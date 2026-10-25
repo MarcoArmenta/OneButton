@@ -138,7 +138,29 @@ texto. Lo que más se cambia:
 
 Después de cambiar algo, reinicia OneButton.
 
-## 6. Letra grande
+## 6. Gafas de pantalla (Xreal, Viture y similares)
+
+Son unas gafas ligeras que se conectan por USB-C y hacen de monitor. Para
+José Antonio son mejores que un monitor fijo: la pantalla va con él.
+
+- Conéctalas al puerto USB-C de la computadora. Windows las ve como un
+  monitor más. En Configuración, Sistema, Pantalla, elige "Mostrar sólo en 2"
+  (o duplicar, si quieres ver tú lo mismo en el monitor).
+- Si el fabricante tiene un programa para Windows que ofrece una pantalla
+  virtual ancha o varias pantallas (Xreal Nebula, Viture SpaceWalker),
+  instálalo y elige la pantalla ancha: OneButton pone los tres paneles uno
+  al lado del otro y aprovecha todo el ancho.
+- En `local/config.yaml` deja `screen_preset: glasses`. Fondo negro (en estas
+  gafas el negro es transparente y descansa la vista), letra grande y todos
+  los paneles visibles. El panel activo lleva un marco azul.
+- Pon el navegador a pantalla completa (F11) en las gafas.
+- Las gafas no sirven de micrófono. Usa un micrófono de solapa inalámbrico o
+  uno de mesa cerca de él; en `input_device` puedes fijar cuál.
+- Prueba media hora seguida el primer día y pregúntale por el cansancio de
+  ojos y de cuello. Si se cansa, baja `screen_font_size` o vuelve a
+  `screen_preset: monitor` en un monitor normal.
+
+## 7. Letra grande
 
 Sube el tamaño de letra de la terminal a 28 o más. En Windows: Terminal de
 Windows, Configuración, Perfiles, Predeterminados, Apariencia, Tamaño de
@@ -146,7 +168,7 @@ fuente; si se abre la consola clásica, clic derecho en la barra de título,
 Propiedades, Fuente. En macOS: Terminal, Ajustes, Perfiles, Texto. En Linux
 depende del programa de terminal; suele estar en Preferencias.
 
-## 7. Si algo falla
+## 8. Si algo falla
 
 - **No responde al botón.** Comprueba qué tecla manda cada botón: abre un
   editor de texto y púlsalos. El uno debe escribir un espacio y el dos debe
@@ -169,7 +191,7 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Una actualización rompió algo.** La persona puede decir "deshacer" y
   confirmar con "adelante". Vuelve a la versión anterior.
 
-## 8. Acceso remoto para quien mantiene OneButton
+## 9. Acceso remoto para quien mantiene OneButton
 
 Vale la pena instalar una vez un programa de escritorio remoto (Chrome
 Remote Desktop, RustDesk o similar) con acceso sin supervisión y una clave
@@ -177,7 +199,7 @@ que sólo tenga la persona que mantiene OneButton. Así, cualquier problema
 que necesite teclado se arregla desde lejos en minutos. Díselo a la persona
 que lo usa: debe saber que existe y cuándo se usa.
 
-## 9. Lo que no hace falta hacer nunca
+## 10. Lo que no hace falta hacer nunca
 
 - Crear cuentas nuevas.
 - Dar permisos en GitHub.
