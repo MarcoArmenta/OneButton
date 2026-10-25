@@ -227,18 +227,9 @@
     lastSeq: 0,
   };
 
-  // ---- speech (the page speaks for itself) --------------------------------
+  // ---- speech: provided by screen.js (window.screenSay); falls back to the browser directly
   function say(text) {
-    try {
-      if (!window.speechSynthesis) return;
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "es-MX";
-      const voices = speechSynthesis.getVoices();
-      const v = voices.find(x => /^es/.test(x.lang) && /natural|neural/i.test(x.name)) || voices.find(x => /^es/.test(x.lang));
-      if (v) u.voice = v;
-      speechSynthesis.speak(u);
-    } catch (e) {}
+    if (window.screenSay) window.screenSay(text);
     const el = document.getElementById("board-status");
     if (el) el.textContent = text;
   }
@@ -351,7 +342,7 @@
     ui.undo.push(ui.md);
     const md = ui.md.slice(0, f.start) + newLatex + ui.md.slice(f.end);
     ui.md = md;
-    fetch("/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => say("No pude guardar."));
+    fetch("/doc/pizarra/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => say("No pude guardar."));
     ui.hIndex = -1; ui.pending = null; ui.path = [];
     loadFormulas(md);
     ui.mode = "hints"; render();
@@ -364,7 +355,7 @@
       if (!ui.undo.length) { say("No hay nada que deshacer."); return; }
       const md = ui.undo.pop();
       ui.md = md;
-      fetch("/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => {});
+      fetch("/doc/pizarra/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => {});
       ui.hIndex = -1; ui.path = []; loadFormulas(md); ui.mode = "hints"; render();
       say("Deshecho."); return;
     }
@@ -449,18 +440,14 @@
     else if (ev.type === "voice") handled = onVoice(ev.text || "");
     else if (ev.type === "latex") onLatex(ev.text || "");
     ui.lastSeq = ev.seq;
-    report({ handled: handled });
+    return handled;
   }
 
-  // ---- polling -------------------------------------------------------------
   window.BoardUI = {
     setText(md) { if (ui.mode !== "idle") { loadFormulas(md); render(); } else ui.md = md; },
-    pollEvents(seq) {
-      if (seq <= ui.lastSeq) return;
-      fetch("/events?after=" + ui.lastSeq, { cache: "no-store" }).then(r => r.json()).then(list => {
-        for (const ev of list) handle(ev);
-      }).catch(() => {});
-    },
+    handle: handle,
+    report: report,
+    exit: exit,
     state: ui,
   };
   if (window.speechSynthesis) speechSynthesis.getVoices();

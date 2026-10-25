@@ -21,7 +21,7 @@ class Board:
 
     def available(self) -> bool:
         try:
-            return "mtime" in self._call("GET", "/status")
+            return "seq" in self._call("GET", "/status")
         except (urllib.error.URLError, OSError, ValueError):
             return False
 

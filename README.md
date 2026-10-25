@@ -4,8 +4,10 @@ Voice-first computing for people who cannot use a keyboard or mouse. One or
 two big buttons, a microphone, a screen, and Claude Code doing the work.
 
 Press the button, speak, press again. The words go to Claude Code, which
-writes, computes, reads email, searches, and answers aloud. Updates arrive by
-saying "actualiza"; mistakes are undone by saying "deshacer".
+writes, computes, reads email, searches, and answers aloud. Everything he
+needs to see is on one local page with panels: the conversation, a maths
+board, the manuscript he is writing. Updates arrive by saying "actualiza";
+mistakes are undone by saying "deshacer".
 
 Built by Marco Armenta for a friend in Mexico City who lives with very limited
 mobility. Everything here is designed so that the person helping at home never
@@ -56,7 +58,7 @@ hold of about 1.5 seconds.
 | | Button 1 (stronger hand) | Button 2 |
 | --- | --- | --- |
 | Press | Talk. Press to start, press again to stop. Also stops speech. | No. Cancel a recording, a task, or a question. Also stops speech. |
-| Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the maths board for editing (or read the controls aloud if the board is off). |
+| Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the screen's ring menu: panels, formula editing, read aloud, help. |
 
 With a single button, a hold cancels (or explains the controls when idle),
 and yes is the spoken word "adelante".
@@ -65,6 +67,9 @@ and yes is the spoken word "adelante".
 - During a long task it says "sigo en ello" now and then; a press of button
   1 gets the same reassurance.
 - **"Repite"** reads the last reply again.
+- **"Pizarra"**, **"escritorio"**, **"conversación"** switch panels on the
+  screen. **"Lee"** or **"lee el cinco"** reads the current panel aloud from
+  the page, block by block; button 2 skips, a number jumps.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
   for a yes before installing. Anything else cancels.
 - **"Deshacer"** goes back to the previous version, after the same confirmation.
@@ -100,6 +105,15 @@ Full details in [docs/security.md](docs/security.md).
 The usual things to change: `language`, `silence_timeout`, `button_key`,
 `button2_key` (null for one button), `tts_voice`, `whisper_model`.
 
+## The screen
+
+A local page (`onebutton/screen/`, served on 127.0.0.1) that the loop opens in
+the browser at start. It has one panel per enabled feature and switches to
+whatever just changed: a reply shows the conversation, a formula written
+during a turn shows the board, a drafted paragraph shows the manuscript. It
+works with no internet, speaks for itself through the browser, and is driven
+by the same two buttons through the loop. The terminal is for the helper.
+
 ## Modules
 
 Optional features, each in `modules/<name>/` with its own `CLAUDE.md` that
@@ -112,7 +126,11 @@ extends the base rules. Turn one on by listing it under `modules:` in
   Holding button 2 opens editing: every part of the last formula gets a
   number, and "barra en el siete" or "subíndice en el dos" edits it on the
   spot. See [modules/maths-screen/README.md](modules/maths-screen/README.md).
-- `scribe/`: idea in, full text out, for papers and books
+- `scribe/` **(shipped)**: the writing desk. Dictate ideas, get prose in the
+  author's own style, correct by paragraph number ("reescribe el tres"). The
+  style is a profile extracted from the author's own papers and grown from
+  every spoken correction; no fine-tuning. See
+  [modules/scribe/README.md](modules/scribe/README.md).
 - `switch-scanning/`: on-screen menu driven by the button alone
 - `computation/`: GAP/QPA, SageMath, QuiverLab
 - `email-to-video/`: email conversation to AI video
@@ -123,6 +141,7 @@ See [modules/README.md](modules/README.md).
 
 ```
 onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS, launcher
+onebutton/screen/  the page: panels, ring menu, reading aloud, board editing, vendored KaTeX and marked
 claude/         CLAUDE.md rules installed into the workspace, and the tool allow list
 bin/            onebutton (macOS/Linux), onebutton.cmd (Windows), onebutton-release (maintainer)
 bootstrap/      install.ps1, install.sh and allowed_signers

@@ -1,6 +1,6 @@
 // Pure-core tests for the blackboard editor. Run: node tests/board_core.test.js
 const assert = require("assert");
-const C = require("../modules/maths-screen/board.js");
+const C = require("../onebutton/screen/board.js");
 
 const src = "x_i^2 + \\frac{a+b}{c} = \\sqrt{\\bar{y}}";
 const H = C.hints(src);

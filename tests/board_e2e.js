@@ -38,8 +38,39 @@ async function waitFile(pred) {
   await p.goto(base + "/", { waitUntil: "load" });
   await p.waitForTimeout(800);
 
+  // panels: config, conversation rendering, voice switching, ring menu
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"] }));
+  assert.strictEqual(await p.locator("#tabs button").count(), 3);
+  fs.writeFileSync(path.join(ws, "conversacion.md"), "## 10:00 Tú\n\nhola\n\n## 10:00 Asistente\n\nHola, **José**. $x^2$\n\n");
+  await p.waitForTimeout(900);
+  assert.ok((await p.locator("#panel-conversacion .turn").count()) === 2, "conversation turns rendered");
+  let st = await waitHandled(await post({ type: "voice", text: "pizarra" }));
+  assert.strictEqual(st.panel, "pizarra"); assert.strictEqual(st.handled, true);
+  st = await waitHandled(await post({ type: "voice", text: "escribe en la pizarra la suma de los primeros n números" }));
+  assert.strictEqual(st.handled, false, "long sentences are not panel switches");
+  st = await waitHandled(await post({ type: "menu" }));
+  assert.strictEqual(st.mode, "menu");
+  await post({ type: "button", button: "no", gesture: "short" });          // -> Pizarra
+  await post({ type: "button", button: "no", gesture: "short" });          // -> Escritorio
+  st = await waitHandled(await post({ type: "button", button: "talk", gesture: "long" }));
+  assert.strictEqual(st.mode, "idle"); assert.strictEqual(st.panel, "escritorio");
+  // manuscript with numbered blocks, then reading mode driven by button 2
+  fs.mkdirSync(path.join(ws, "escritos", "tesis"), { recursive: true });
+  fs.writeFileSync(path.join(ws, "escritos", "tesis", "manuscrito.md"), "# Tesis\n\nUno.\n\nDos.\n\nTres.\n");
+  fs.writeFileSync(path.join(ws, "escritos", "actual"), "tesis");
+  await p.waitForTimeout(900);
+  assert.strictEqual(await p.locator("#panel-escritorio .block").count(), 4);
+  st = await waitHandled(await post({ type: "voice", text: "lee el dos" }));
+  assert.strictEqual(st.mode, "reading");
+  assert.strictEqual((await p.locator("#panel-escritorio .block.current").innerText()).replace(/\s+/g, ""), "2Uno.");
+  await waitHandled(await post({ type: "button", button: "no", gesture: "short" }));
+  assert.strictEqual((await p.locator("#panel-escritorio .block.current").innerText()).replace(/\s+/g, ""), "3Dos.");
+  st = await waitHandled(await post({ type: "exit" }));
+  assert.strictEqual(st.mode, "idle");
+  await waitHandled(await post({ type: "voice", text: "pizarra" }));
+
   // enter: hints for the last formula
-  let st = await waitHandled(await post({ type: "enter" }));
+  st = await waitHandled(await post({ type: "enter" }));
   assert.strictEqual(st.mode, "hints");
   assert.strictEqual(st.formula, 1);
   assert.ok((await p.locator(".hint").count()) >= 4, "hint chips rendered");

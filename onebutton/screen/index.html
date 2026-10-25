@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneButton</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<style>
+  :root { --bg: #fbfaf6; --fg: #1a1a1a; --muted: #6b6b6b; --accent: #2a5db0; --rule: #e3e0d6; --me: #eef3fb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --fg: #ececec; --muted: #9a9a9a; --accent: #8ab4ff; --rule: #2a2e35; --me: #1c2230; }
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 28px/1.55 Georgia, "Times New Roman", serif; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; height: 6px; background: var(--rule); z-index: 5; }
+  #bar.stale { background: #d9534f; }
+  #tabs { position: fixed; top: 6px; left: 0; right: 0; display: flex; gap: 6px; padding: 8px 24px; background: var(--bg);
+    border-bottom: 1px solid var(--rule); font-family: system-ui, -apple-system, sans-serif; z-index: 4; }
+  #tabs button { font: inherit; font-size: .7em; padding: .3em 1em; border-radius: 999px; border: 2px solid var(--rule); background: transparent; color: var(--muted); cursor: pointer; }
+  #tabs button.active { border-color: var(--accent); color: var(--fg); background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 600; }
+  #status { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 24px; font: .6em/1.3 system-ui, sans-serif; color: var(--muted); background: var(--bg); border-top: 1px solid var(--rule); z-index: 4; min-height: 1.3em; }
+  main { padding: 96px 40px 60px; max-width: 1100px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .empty { color: var(--muted); font-style: italic; }
+  h1, h2, h3 { font-family: system-ui, -apple-system, sans-serif; line-height: 1.2; margin: 1.2em 0 .5em; }
+  h2 { font-size: 1.2em; color: var(--accent); border-top: 2px solid var(--rule); padding-top: .8em; }
+  p { margin: .6em 0; }
+  .katex { font-size: 1.15em; }
+  .katex-display { margin: .8em 0; overflow-x: auto; overflow-y: hidden; }
+  code { font: 0.85em/1.4 ui-monospace, Menlo, monospace; background: var(--rule); padding: 0 .25em; border-radius: 4px; }
+  pre code { display: block; padding: .8em; overflow-x: auto; }
+  table { border-collapse: collapse; font-size: .9em; } td, th { border: 1px solid var(--rule); padding: .2em .6em; }
+
+  /* conversation */
+  .turn { margin: .8em 0; padding: .4em 1em; border-radius: 14px; }
+  .turn.me { background: var(--me); }
+  .turn .who { font: 600 .6em/1.2 system-ui, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .2em; }
+  .turn .who span { font-weight: 400; margin-left: .6em; }
+
+  /* manuscript */
+  .block { position: relative; padding-left: 2.2em; margin: .3em 0; border-radius: 10px; }
+  .block .n { position: absolute; left: 0; top: .55em; min-width: 1.6em; text-align: center; font: 600 .55em/1.6 system-ui, sans-serif; color: var(--muted); border: 1px solid var(--rule); border-radius: 8px; }
+  .block.current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .block.current .n { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* global ring */
+  #ring { display: none; position: fixed; inset: 20vh 20vw 12vh; z-index: 6; }
+  #ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--rule); background: color-mix(in srgb, var(--bg) 85%, transparent); }
+  .ring-item { position: absolute; transform: translate(-50%, -50%); padding: .3em 1em; border-radius: 999px; font: .85em system-ui, sans-serif;
+    border: 2px solid var(--rule); background: var(--bg); color: var(--muted); white-space: nowrap; }
+  .ring-item.current { border-color: var(--accent); color: var(--fg); background: color-mix(in srgb, var(--accent) 16%, transparent); font-size: 1.05em; font-weight: 600; }
+
+  /* board editing panel (board.js) */
+  body.board-active main { padding-bottom: 52vh; }
+  #board-panel { display: none; position: fixed; left: 0; right: 0; bottom: 0; height: 48vh; background: var(--bg); z-index: 5;
+    border-top: 3px solid var(--accent); box-shadow: 0 -8px 30px rgba(0,0,0,.15); padding: 10px 24px; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+  #board-status { font-size: .8em; color: var(--muted); min-height: 1.4em; }
+  #board-hints { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 6px; max-height: 15vh; overflow-y: auto; padding-bottom: 4px; }
+  .hint { display: inline-flex; align-items: center; gap: 8px; padding: 2px 12px 2px 4px; border: 2px solid var(--rule); border-radius: 12px; }
+  .hint b { display: inline-block; min-width: 1.6em; text-align: center; background: var(--accent); color: #fff; border-radius: 8px; font-size: .8em; padding: 2px 4px; }
+  .hint.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .hint .katex { font-size: 1em; }
+  #board-menu { position: relative; height: 26vh; margin-top: 8px; }
+  #board-menu .ring { position: absolute; inset: 1.2em 0; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<nav id="tabs"></nav>
+<main>
+  <section id="panel-conversacion" class="panel active"></section>
+  <section id="panel-pizarra" class="panel"></section>
+  <section id="panel-escritorio" class="panel"></section>
+</main>
+<div id="ring"></div>
+<div id="status"></div>
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="vendor/katex/contrib/auto-render.min.js"></script>
+<script src="board.js"></script>
+<script src="screen.js"></script>
+</body>
+</html>

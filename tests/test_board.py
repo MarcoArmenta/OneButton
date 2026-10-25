@@ -13,7 +13,7 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-START = REPO / "modules" / "maths-screen" / "start.py"
+START = REPO / "onebutton" / "screen" / "start.py"
 
 
 def free_port() -> int:
@@ -33,7 +33,7 @@ class ServerMixin:
         self.tmp = Path(tempfile.mkdtemp())
         self.port = free_port()
         self.proc = subprocess.Popen([sys.executable, str(START), str(self.tmp), str(self.port)],
-                                     env=dict(os.environ, PIZARRA_NO_BROWSER="1"),
+                                     env=dict(os.environ, ONEBUTTON_NO_BROWSER="1"),
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(50):
             try:
@@ -75,9 +75,14 @@ class ServerTests(ServerMixin, unittest.TestCase):
         self.assertEqual([e["type"] for e in self.get("/events?after=1")], ["voice"])
         self.req("POST", "/state", {"mode": "hints", "seq_handled": 2})
         self.assertEqual(self.get("/state")["mode"], "hints")
-        self.req("PUT", "/pizarra.md", "# Pizarra\n\n$x$\n".encode(), "text/markdown")
+        self.req("PUT", "/doc/pizarra/pizarra.md", "# Pizarra\n\n$x$\n".encode(), "text/markdown")
         self.assertEqual((self.tmp / "pizarra" / "pizarra.md").read_text(encoding="utf-8"), "# Pizarra\n\n$x$\n")
-        self.assertEqual(self.req("GET", "/pizarra.md"), b"# Pizarra\n\n$x$\n")
+        self.assertEqual(self.req("GET", "/doc/pizarra/pizarra.md"), b"# Pizarra\n\n$x$\n")
+        self.assertIn("pizarra/pizarra.md", self.get("/status")["docs"])
+        with self.assertRaises(urllib.error.HTTPError):
+            self.get("/doc/../config.example.yaml")
+        self.req("PUT", "/doc/escritos/actual", b"tesis", "text/plain")
+        self.assertEqual(self.get("/status")["manuscript"], "escritos/tesis/manuscrito.md")
 
     def test_vendor_is_served_and_traversal_is_not(self):
         self.assertTrue(len(self.req("GET", "/vendor/katex/katex.min.css")) > 1000)

@@ -14,5 +14,9 @@ At every start the loop writes `workspace/CLAUDE.md` as the base rules followed
 by each enabled module's `CLAUDE.md`, so the workspace always matches the
 installed version.
 
-Shipped: `maths-screen`. Planned, in order: scribe, computation,
-switch-scanning, email-to-video.
+A module can also own a panel on the screen (`onebutton/screen/screen.js`
+knows the panels; the loop tells the page which ones are on).
+
+Shipped: `maths-screen` (panel Pizarra), `scribe` (panel Escritorio).
+Planned: a reader for PDFs, computation, a window switcher for foreign apps,
+email-to-video.

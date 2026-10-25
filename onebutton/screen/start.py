@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Serve the blackboard. Usage: start.py <workspace> [port]
+"""The OneButton screen: one local page with panels. Usage: start.py <workspace> [port]
 
 Binds to 127.0.0.1 only. Routes:
 
-    GET  /              the viewer page
-    GET  /board.js      the board logic (hints, menu, editing)
-    GET  /vendor/...    KaTeX and marked
-    GET  /pizarra.md    the board text        PUT /pizarra.md   replace it (viewer edits)
-    GET  /status        {"mtime": ns, "seq": n}  cheap polling target
-    POST /event         the loop pushes {"type": ...}; GET /events?after=n returns newer ones
-    GET  /state         what the viewer last reported; POST /state sets it
+    GET  /                     the page
+    GET  /board.js             blackboard editing logic
+    GET  /vendor/...           KaTeX and marked
+    GET  /doc/<path>           a text file under the workspace    PUT /doc/<path>  replace it
+    GET  /status               {"seq": n, "docs": {path: mtime_ns}} for the docs the page watches
+    POST /event                the loop pushes {"type": ...}; GET /events?after=n returns newer ones
+    GET  /state                what the page last reported; POST /state sets it (never goes backwards)
 
-Opens the browser once on first start unless PIZARRA_NO_BROWSER=1.
+Opens the browser once on first start unless ONEBUTTON_NO_BROWSER=1.
 """
 
 from __future__ import annotations
@@ -23,25 +23,42 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 
 HERE = Path(__file__).resolve().parent
-EMPTY = "# Pizarra\n\n"
-CTYPES = {"js": "application/javascript", "css": "text/css", "woff2": "font/woff2", "html": "text/html; charset=utf-8"}
+CTYPES = {"js": "application/javascript", "css": "text/css", "woff2": "font/woff2", "html": "text/html; charset=utf-8",
+          "md": "text/markdown; charset=utf-8", "txt": "text/plain; charset=utf-8"}
+WATCHED = ["conversacion.md", "pizarra/pizarra.md", "escritos/actual"]
+EMPTY_BOARD = "# Pizarra\n\n"
 
 
 def main() -> int:
     workspace = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else int(os.environ.get("PIZARRA_PORT", 8765))
-    board_dir = workspace / "pizarra"
-    board_dir.mkdir(parents=True, exist_ok=True)
-    (board_dir / "archivo").mkdir(exist_ok=True)
-    board = board_dir / "pizarra.md"
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else int(os.environ.get("ONEBUTTON_SCREEN_PORT", 8765))
+    (workspace / "pizarra" / "archivo").mkdir(parents=True, exist_ok=True)
+    (workspace / "escritos").mkdir(parents=True, exist_ok=True)
+    board = workspace / "pizarra" / "pizarra.md"
     if not board.exists():
-        board.write_text(EMPTY, encoding="utf-8")
+        board.write_text(EMPTY_BOARD, encoding="utf-8")
 
     lock = threading.Lock()
-    events: list[dict] = []          # [{"seq": n, ...}]
+    events: list[dict] = []
     state: dict = {"mode": "idle"}
+
+    def safe(rel: str) -> Path | None:
+        rel = unquote(rel).lstrip("/")
+        if not rel or ".." in rel.split("/"):
+            return None
+        p = (workspace / rel).resolve()
+        return p if workspace in p.parents or p == workspace else None
+
+    def manuscript_path() -> str | None:
+        actual = workspace / "escritos" / "actual"
+        if actual.exists():
+            name = actual.read_text(encoding="utf-8").strip()
+            if name:
+                return f"escritos/{name}/manuscrito.md"
+        return None
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):  # quiet
@@ -65,17 +82,27 @@ def main() -> int:
         def do_GET(self):
             path, _, query = self.path.partition("?")
             if path == "/":
-                self._send(200, (HERE / "viewer.html").read_bytes(), CTYPES["html"])
-            elif path == "/board.js":
-                self._send(200, (HERE / "board.js").read_bytes(), CTYPES["js"])
-            elif path == "/pizarra.md":
-                data = board.read_bytes() if board.exists() else EMPTY.encode()
-                self._send(200, data, "text/markdown; charset=utf-8")
+                self._send(200, (HERE / "index.html").read_bytes(), CTYPES["html"])
+            elif path in ("/board.js", "/screen.js"):
+                self._send(200, (HERE / path[1:]).read_bytes(), CTYPES["js"])
+            elif path.startswith("/doc/"):
+                f = safe(path[5:])
+                if f and f.is_file():
+                    self._send(200, f.read_bytes(), CTYPES.get(f.suffix[1:], "text/plain; charset=utf-8"))
+                else:
+                    self._send(404, b"", "text/plain")
             elif path == "/status":
-                mtime = board.stat().st_mtime_ns if board.exists() else 0
+                docs = {}
+                watched = list(WATCHED)
+                m = manuscript_path()
+                if m:
+                    watched.append(m)
+                for rel in watched:
+                    f = workspace / rel
+                    docs[rel] = f.stat().st_mtime_ns if f.exists() else 0
                 with lock:
                     seq = events[-1]["seq"] if events else 0
-                self._json(200, {"mtime": mtime, "seq": seq})
+                self._json(200, {"seq": seq, "docs": docs, "manuscript": m})
             elif path == "/events":
                 after = 0
                 for part in query.split("&"):
@@ -114,7 +141,6 @@ def main() -> int:
                 self._json(200, {"seq": seq})
             elif path == "/state":
                 with lock:
-                    # Reports are posted asynchronously; never let an older one overwrite a newer one.
                     new_seq = int(data.get("seq_handled") or 0) if isinstance(data, dict) else 0
                     if new_seq >= int(state.get("seq_handled") or 0):
                         state.clear()
@@ -125,19 +151,21 @@ def main() -> int:
 
         def do_PUT(self):
             path = self.path.split("?", 1)[0]
-            if path != "/pizarra.md":
+            f = safe(path[5:]) if path.startswith("/doc/") else None
+            if not f:
                 self._send(404, b"not found", "text/plain")
                 return
             text = self._body().decode("utf-8", errors="replace")
-            tmp = board.with_suffix(".md.tmp")
+            f.parent.mkdir(parents=True, exist_ok=True)
+            tmp = f.with_suffix(f.suffix + ".tmp")
             tmp.write_text(text, encoding="utf-8")
-            os.replace(tmp, board)
+            os.replace(tmp, f)
             self._json(200, {"ok": True, "bytes": len(text)})
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}/"
-    print(f"pizarra en {url} ({board})", flush=True)
-    if os.environ.get("PIZARRA_NO_BROWSER") != "1":
+    print(f"pantalla en {url} ({workspace})", flush=True)
+    if os.environ.get("ONEBUTTON_NO_BROWSER") != "1":
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
         server.serve_forever()

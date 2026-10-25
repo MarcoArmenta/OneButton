@@ -10,13 +10,17 @@ concrete and free of jargon.
 se mantiene pulsado, dice sí; el dos cancela o dice no. Con uno: pulsar para
 hablar y para parar, mantener pulsado para cancelar. Dictado, Claude Code, respuesta
 hablada sin leer código ni fórmulas símbolo a símbolo. Actualización por voz
-con confirmación, y deshacer. Pizarra de matemáticas en el navegador, que
-funciona sin internet, con edición por números: "barra en el siete".
-Funciona en Windows, macOS y Linux.
+con confirmación, y deshacer. Una pantalla con paneles: la
+conversación, la pizarra de matemáticas con edición por números ("barra en el
+siete"), y el escritorio para dictar artículos en tu propio estilo y corregir
+por párrafo. Lee en voz alta cualquier panel. Funciona sin internet, en
+Windows, macOS y Linux.
 
 **English.** First version. One or two buttons. With two: button 1 talks and,
 held, says yes; button 2 cancels or says no. With one: press to talk and to
 stop, hold to cancel. Dictation, Claude Code, spoken replies that do not read
 code or formulas symbol by symbol. Voice update with confirmation, and undo.
-Maths blackboard in the browser, working offline, with editing by number:
-"barra en el siete". Runs on Windows, macOS and Linux.
+A screen with panels: the conversation, the maths board with editing by
+number ("barra en el siete"), and the writing desk for dictating papers in
+your own style and correcting by paragraph. Reads any panel aloud. Works
+offline, on Windows, macOS and Linux.

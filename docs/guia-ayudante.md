@@ -88,8 +88,8 @@ pulsado un segundo y medio.
   hay pregunta, repite la última respuesta.
 - **Botón dos, pulsar:** no. Cancela lo que esté pasando: una grabación, una
   tarea, una pregunta. También corta la voz.
-- **Botón dos, mantener:** abre la edición de la pizarra de matemáticas (si
-  está activada); si no, explica los controles en voz alta.
+- **Botón dos, mantener:** abre el menú de la pantalla: ir a un panel, editar
+  una fórmula, leer en voz alta, ayuda.
 
 Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
 "adelante". Enséñale los gestos con calma; el de cancelar da tranquilidad.
@@ -127,10 +127,14 @@ texto. Lo que más se cambia:
   siempre seleccionada, pero no hace falta ningún permiso.
 - `helper_name`: el nombre de quien ayuda, por ejemplo `Marco`. OneButton lo
   dirá en voz alta cuando algo necesite a una persona.
-- `modules`: escribe `[maths-screen]` para activar la pizarra de matemáticas.
-  Al arrancar se abre una página del navegador; ponla en la pantalla que la
-  persona lee y deja el sonido del navegador encendido, porque la pizarra
-  habla por sí misma al editar.
+- `modules`: escribe `[maths-screen, scribe]` para activar la pizarra de
+  matemáticas y el escritorio de redacción. Al arrancar se abre una página
+  del navegador con un panel por función; ponla a pantalla completa en la
+  pantalla que la persona lee y deja el sonido del navegador encendido,
+  porque la página habla por sí misma al leer y al editar.
+- Para que aprenda el estilo de la persona al escribir: copia sus artículos
+  (PDF, TeX o texto) en `OneButton\workspace\estilo\corpus\` y que diga
+  "aprende mi estilo". Esos archivos no salen de la computadora.
 
 Después de cambiar algo, reinicia OneButton.
 

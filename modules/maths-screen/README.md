@@ -13,9 +13,8 @@ In `local/config.yaml`:
 modules: [maths-screen]
 ```
 
-Restart OneButton. The loop starts a small local server on
-`http://127.0.0.1:8765` and opens it in the default browser once. Put that
-window on the screen the user reads, next to or behind the terminal.
+Restart OneButton. The board is the **Pizarra** panel of the screen the loop
+opens at start. Put that browser window on the screen the user reads.
 
 ## Needs
 
@@ -25,8 +24,8 @@ window on the screen the user reads, next to or behind the terminal.
 
 ## Editing what is on the board
 
-Voice composes, buttons point. With two buttons, **hold button 2** to enter
-board mode. The last formula gets a numbered chip for every part that can be
+Voice composes, buttons point. With two buttons, **hold button 2** and choose
+"Editar fórmula" in the ring (or say "editar fórmula"). The last formula gets a numbered chip for every part that can be
 edited: each symbol, each subscripted or superscripted term, each fraction,
 root, decorated symbol and bracketed group. Then:
 
@@ -57,11 +56,7 @@ browser's speech engine, so turn the browser's sound on.
 
 ## Files
 
-- `start.py`: the server, bound to 127.0.0.1. Started by the loop with the
-  workspace path as its only argument. Serves the viewer, the file (GET and
-  PUT), `/status` for polling, `/event` (loop to page) and `/state` (page to
-  loop).
-- `viewer.html`: the page. `board.js`: hints, menu and splicing; its core is
-  pure and tested in node (`tests/board_core.test.js`), the whole flow in
-  headless Chromium (`tests/board_e2e.js`).
+- `CLAUDE.md`: the rules. The page code lives in `onebutton/screen/`
+  (`board.js` for hints, menu and splicing; its core is pure and tested in
+  node, the whole flow in headless Chromium).
 - `CLAUDE.md`: rules appended to the agent's instructions when enabled.

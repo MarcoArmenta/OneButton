@@ -1,11 +1,16 @@
 """The OneButton loop.
 
-    press -> record -> press -> transcribe -> command or Claude turn -> speak
+    press -> record -> press -> transcribe -> screen, command, or Claude turn -> speak
 
 One or two buttons, two gestures each; see gestures.py for the mapping. With
 two buttons, yes and no never depend on speech recognition. Local commands
 ("actualiza", "deshacer", "repite") never reach the agent, and anything that
 changes the installed version is read aloud and waits for a yes.
+
+The screen (onebutton/screen) is a local page with panels: the conversation,
+the maths board, the manuscript. Short utterances that name a panel or ask to
+read are handled there, instantly. Holding button 2 opens its ring menu and
+the loop forwards button presses and speech to the page until it closes.
 """
 
 from __future__ import annotations
@@ -13,10 +18,12 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 from . import __version__, auth, commands, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
@@ -38,11 +45,14 @@ class Loop:
         self.progress_interval = float(cfg.get("progress_interval", 45))
         self.log_path = LOCAL_DIR / "session.log" if cfg.get("log_transcripts", True) else None
         self.modules: list[subprocess.Popen] = []
-        self.board = None
-        if "maths-screen" in (cfg.get("modules") or []):
-            from .board import Board
-            self.board = Board(int(cfg.get("pizarra_port", 8765)))
-        install_rules(list(cfg.get("modules") or []))
+        from .board import Board
+        self.screen = Board(int(cfg.get("screen_port") or cfg.get("pizarra_port") or 8765))
+        self.screen_alive_until = 0.0
+        mods = list(cfg.get("modules") or [])
+        self.panels = ["conversacion"] + (["pizarra"] if "maths-screen" in mods else []) + \
+            (["escritorio"] if "scribe" in mods else [])
+        self.conversation = WORKSPACE_DIR / "conversacion.md"
+        install_rules(mods)
         self.two_buttons = bool(cfg.get("button2_key"))
         if dry_run:
             self.button = self.recorder = self.transcriber = self.agent = None
@@ -69,6 +79,38 @@ class Loop:
         except OSError:
             pass
 
+    def converse(self, who: str, text: str) -> None:
+        """Append a turn to workspace/conversacion.md, which the screen shows in large type."""
+        try:
+            WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
+            stamp = dt.datetime.now().strftime("%H:%M")
+            with self.conversation.open("a", encoding="utf-8") as fh:
+                fh.write(f"## {stamp} {who}\n\n{text.strip()}\n\n")
+            if self.conversation.stat().st_size > 400_000:  # keep the file light: drop the oldest half
+                parts = self.conversation.read_text(encoding="utf-8").split("\n## ")
+                self.conversation.write_text("## " + "\n## ".join(parts[len(parts) // 2:]).lstrip("# "), encoding="utf-8")
+        except OSError:
+            pass
+
+    def screen_try(self, text: str) -> bool:
+        """Offer a short utterance to the screen first (panel names, "lee ..."). True if it took it."""
+        if self.dry_run or len(commands.normalize(text).split()) > 4:
+            return False
+        if time.monotonic() < self.screen_alive_until:
+            return False
+        seq = self.screen.post({"type": "voice", "text": text})
+        if not seq:
+            return False
+        st = self.screen.wait_handled(seq, timeout=1.5)
+        if int(st.get("seq_handled") or 0) < seq:
+            self.screen_alive_until = time.monotonic() + 60  # page not open; stop asking for a minute
+            return False
+        if not st.get("handled"):
+            return False
+        if st.get("mode") not in (None, "idle"):
+            self.screen_mode(entered=True)
+        return True
+
     def say(self, text: str, clean: bool = False) -> None:
         """Speak, and let any button press cut it short. The press is consumed."""
         if self.dry_run or not self.button:
@@ -80,9 +122,25 @@ class Loop:
             self.button.clear()
 
     def start_modules(self) -> None:
-        """Start any long-running helper a module ships (e.g. the maths blackboard server)."""
+        """Start the screen, then any long-running helper a module ships."""
         from .rules import MODULES_DIR
 
+        if not self.dry_run or self.cfg.get("screen_in_dry_run"):
+            screen = Path(__file__).resolve().parent / "screen" / "start.py"
+            env = dict(os.environ)
+            if not self.cfg.get("open_browser", True):
+                env["ONEBUTTON_NO_BROWSER"] = "1"
+            try:
+                self.modules.append(subprocess.Popen(
+                    [sys.executable, str(screen), str(WORKSPACE_DIR), str(self.screen.base.rsplit(":", 1)[1])],
+                    env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            except OSError as exc:
+                print(f"[pantalla] no pude arrancar la pantalla: {exc}", file=sys.stderr)
+            for _ in range(30):
+                if self.screen.available():
+                    break
+                time.sleep(0.1)
+            self.screen.post({"type": "config", "panels": self.panels})
         for name in self.cfg.get("modules") or []:
             script = MODULES_DIR / name / "start.py"
             if script.exists():
@@ -110,8 +168,8 @@ class Loop:
             if act == A_TALK:
                 return self.record_and_transcribe()
             if act == A_HELP:
-                if self.two_buttons and self.board and self.board.available():
-                    self.board_mode()
+                if self.two_buttons and self.screen.available():
+                    self.screen_mode()
                 else:
                     self.say(help_text(self.two_buttons))
             elif act == A_REPEAT:
@@ -166,17 +224,17 @@ class Loop:
                     return False
                 return commands.classify(heard, self.cfg, awaiting_confirmation=True).kind == commands.CONFIRM
 
-    # ---- board mode --------------------------------------------------------
-    def board_mode(self) -> None:
-        """Hold of button 2 with the blackboard running: buttons and voice drive the board.
+    # ---- screen mode -------------------------------------------------------
+    def screen_mode(self, entered: bool = False) -> None:
+        """Buttons and speech go to the page until it reports idle or button 2 is held.
 
-        Button 2 short steps, button 1 held selects, button 1 short records a
-        number, a menu word or content. Button 2 held leaves. The page does the
-        rest and speaks for itself; see modules/maths-screen/board.js.
+        Reached by holding button 2 (opens the ring menu) or when a short
+        utterance put the page into a mode (reading, board editing).
         """
-        self.say("Pizarra.")
-        self.log("SISTEMA", "modo pizarra")
-        self.board.post({"type": "enter"})
+        if not entered:
+            self.say("Menú.")
+            self.screen.post({"type": "menu"})
+        self.log("SISTEMA", "modo pantalla")
         try:
             while True:
                 ev = self.button.wait()
@@ -189,24 +247,30 @@ class Loop:
                     text = self.record_and_transcribe()
                     if text is None:
                         continue
-                    if commands.normalize(text) in ("salir", "sal", "listo", "terminar"):
+                    if commands.normalize(text) in ("salir", "sal", "listo", "terminar", "cerrar"):
                         return
-                    self.board_voice(text)
+                    st = self.screen_voice(text)
                 else:
-                    self.board.post({"type": "button", "button": button, "gesture": gesture})
+                    seq = self.screen.post({"type": "button", "button": button, "gesture": gesture})
+                    st = self.screen.wait_handled(seq)
+                if st.get("mode") in (None, "idle"):
+                    return
         finally:
-            self.board.post({"type": "exit"})
-            self.say("Salgo de la pizarra.")
+            self.screen.post({"type": "exit"})
 
-    def board_voice(self, text: str) -> None:
-        st = self.board.state()
+    def screen_voice(self, text: str) -> dict:
+        st = self.screen.state()
         if st.get("awaiting"):
             self.dictate_latex(text)
-            return
-        seq = self.board.post({"type": "voice", "text": text})
-        st = self.board.wait_handled(seq)
+            return self.screen.state()
+        seq = self.screen.post({"type": "voice", "text": text})
+        st = self.screen.wait_handled(seq)
         if st.get("handled") is False and st.get("selected"):
-            self.dictate_latex(text)  # free-form edit of the selection
+            self.dictate_latex(text)  # free-form edit of the selected part of a formula
+            st = self.screen.state()
+        elif st.get("handled") is False:
+            self.say("No entendí. Di el nombre de un panel, un número, o 'salir'.")
+        return st
 
     def dictate_latex(self, text: str) -> None:
         print("🤖 Convirtiendo a LaTeX...", flush=True)
@@ -215,7 +279,7 @@ class Loop:
             self.say("No pude convertirlo. Dilo otra vez.")
             return
         self.log("LATEX", f"{text} -> {latex}")
-        self.board.post({"type": "latex", "text": latex})
+        self.screen.post({"type": "latex", "text": latex})
 
     # ---- handlers --------------------------------------------------------
     def handle_update(self) -> None:
@@ -259,12 +323,16 @@ class Loop:
         sys.exit(3)
 
     def handle_text(self, text: str) -> None:
+        if self.screen_try(text):
+            return
+        self.converse("Tú", text)
         if self.dry_run:
             reply = f"(simulado) Recibí: {text}"
         else:
             reply = self.ask_with_button(text)
         self.last_reply = reply
         self.log("BOT", reply)
+        self.converse("Asistente", reply)
         print(f"\n{reply}\n", flush=True)
         self.say(reply, clean=True)
 
