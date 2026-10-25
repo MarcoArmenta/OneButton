@@ -57,6 +57,12 @@ if (-not (Test-Path "local\allowed_signers")) { Copy-Item bootstrap\allowed_sign
 $env:ONEBUTTON_HOME = $Dest
 & $Py -c "from onebutton.rules import install; from onebutton.config import load; install(list(load().get('modules') or []))"
 git config gpg.ssh.allowedSignersFile (Join-Path $Dest "local\allowed_signers")
+if (-not (Test-Path "local\credentials.env")) { Copy-Item bootstrap\credentials.env.example local\credentials.env }
+
+Say "Comprobando la sesión de Claude Code"
+& $Py -m onebutton --check-auth | Out-Null
+if ($LASTEXITCODE -eq 0) { Write-Host "Sesión iniciada." }
+else { Write-Host "AVISO: Claude Code no tiene sesión iniciada. Ver docs\login.md para dejarla fija sin teclado." -ForegroundColor Yellow }
 
 $hasKey = Select-String -Path "local\allowed_signers" -Pattern '^[^#\s].*ssh-(ed25519|rsa|ecdsa)' -Quiet
 if ($hasKey -and (Have ssh-keygen)) {

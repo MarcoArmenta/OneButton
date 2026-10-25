@@ -32,6 +32,9 @@ log_transcripts: true        # Append what was said and answered to local/sessio
 font_size: 28                # Terminal font size the helper sets. Informational, used by the install guide.
 
 # Claude Code.
+# Sign-in without a keyboard: put CLAUDE_CODE_OAUTH_TOKEN=... (from `claude setup-token`) or
+# ANTHROPIC_API_KEY=... in local/credentials.env. See docs/login.md.
+helper_name: ""              # Who to call when something needs a human, e.g. "Marco". Used in spoken messages.
 claude_bin: claude
 permission_mode: acceptEdits # acceptEdits is safe: tools outside the allow list are denied, not prompted.
 claude_timeout: 600          # Seconds before a single turn is abandoned and reported aloud.

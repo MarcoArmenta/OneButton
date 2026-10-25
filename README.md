@@ -22,7 +22,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | Microphone | Any USB microphone placed near the user. |
 | One or two accessible buttons | USB switches that send the space bar (button 1, the stronger hand) and Enter (button 2). Most "big button" switch interfaces do this out of the box. One button is enough; the second adds yes and no without speech. |
 | Screen | Placed where the user can read it. Large font. |
-| Claude Code subscription | Logged in once by the helper. The login does expire occasionally and must be renewed by a helper. |
+| Claude Code subscription | Signed in once by the helper, then kept signed in with a long-lived token so nobody has to click "Authorize" again. See [docs/login.md](docs/login.md). |
 
 ## Install (for the helper)
 
@@ -88,6 +88,9 @@ and yes is the spoken word "adelante".
   updates cannot change. Anything unsigned is refused.
 - Every update is logged and can be undone by voice.
 - The assistant cannot run `sudo`, delete recursively, or change permissions.
+- Credentials live in `local/credentials.env`, outside the repo and out of
+  the assistant's reach. At startup the loop checks the sign-in and says
+  plainly, naming the helper, if a human is needed.
 
 Full details in [docs/security.md](docs/security.md).
 

@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import subprocess
 import sys
 import threading
 import time
 
-from . import __version__, commands, updater
+from . import __version__, auth, commands, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, RECORDING, THINKING, help_text, interpret)
@@ -244,6 +245,11 @@ class Loop:
             self.recorder.calibrate()
         self.start_modules()
         self.say(BANNER)
+        if not self.dry_run:
+            st = auth.status(self.cfg["claude_bin"])
+            self.log("SISTEMA", f"auth: {st}")
+            if not st.get("loggedIn"):
+                self.say(auth.login_message(self.cfg.get("helper_name") or "la persona que te ayuda"))
         try:
             while True:
                 try:
@@ -275,8 +281,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="Type instead of speaking; no audio, no Claude. For testing the loop.")
     ap.add_argument("--check-update", action="store_true", help="Print the newest verified release and exit.")
+    ap.add_argument("--check-auth", action="store_true", help="Print Claude Code's sign-in status and exit.")
     args = ap.parse_args(argv)
     cfg = load()
+    if args.check_auth:
+        st = auth.status(cfg["claude_bin"])
+        print(json.dumps(st, indent=2))
+        return 0 if st.get("loggedIn") else 1
     if args.check_update:
         try:
             rel = updater.check()

@@ -14,12 +14,12 @@ import subprocess
 import threading
 import time
 
+from .auth import login_message, subprocess_env
 from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR
 
 MSG_TIMEOUT = "La tarea tardó demasiado y la detuve. Dime si quieres que lo intente de otra forma."
 MSG_MISSING = "No encuentro Claude Code en esta computadora. Hay que pedir ayuda para instalarlo."
 MSG_CANCELLED = "Cancelado."
-MSG_LOGIN = "Parece que hay que iniciar sesión en Claude Code otra vez. Hace falta que alguien ayude con eso."
 
 
 class Agent:
@@ -31,6 +31,7 @@ class Agent:
         self.max_turns = int(cfg["max_turns"])
         self.settings = REPO_DIR / "claude" / "settings.json"
         self.workspace = WORKSPACE_DIR
+        self.helper = cfg.get("helper_name") or "la persona que te ayuda"
         self.first_turn = True
         self._proc: subprocess.Popen | None = None
         self._lock = threading.Lock()
@@ -77,7 +78,7 @@ class Agent:
         try:
             with self._lock:
                 self._proc = subprocess.Popen(cmd, cwd=self.workspace, stdout=subprocess.PIPE,
-                                              stderr=subprocess.PIPE, text=True)
+                                              stderr=subprocess.PIPE, text=True, env=subprocess_env())
                 proc = self._proc
         except FileNotFoundError:
             return MSG_MISSING
@@ -94,8 +95,8 @@ class Agent:
         err = (err or "").strip()
         if proc.returncode != 0 and not out:
             low = err.lower()
-            if any(k in low for k in ("login", "log in", "auth", "token", "credential")):
-                return MSG_LOGIN
+            if any(k in low for k in ("login", "log in", "auth", "token", "credential", "unauthorized", "401")):
+                return login_message(self.helper)
             tail = err.splitlines()[-1] if err else "sin detalle"
             return f"Claude Code devolvió un error: {tail}"
         return out or "Listo."

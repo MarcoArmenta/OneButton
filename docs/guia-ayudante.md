@@ -27,8 +27,16 @@ hazlo en el navegador una vez.
 Si no está instalado, sigue https://docs.anthropic.com/claude-code (en Windows
 necesita también Git for Windows).
 
-Esta sesión caduca de vez en cuando. Si OneButton dice que hay que iniciar
-sesión otra vez, repite este paso.
+Esta sesión caduca de vez en cuando, y la persona no puede iniciarla sola
+porque hace falta pulsar un botón en el navegador. Para que no dependa de
+nadie, deja una credencial fija: con la sesión iniciada, en la misma
+terminal escribe `claude setup-token`, copia el código largo que aparece y
+pégalo en `OneButton\local\credentials.env` en la línea que empieza por
+`CLAUDE_CODE_OAUTH_TOKEN=`. Más detalles y alternativas en `docs/login.md`.
+
+Si algún día OneButton dice "Claude Code no tiene la sesión iniciada", hay
+que repetir esto. Avisará nombrando a la persona de contacto que pongas en
+`helper_name` en la configuración.
 
 ## 3. Instalar OneButton
 
@@ -116,6 +124,8 @@ texto. Lo que más se cambia:
 - `button_source`: si el botón no reacciona cuando la terminal no está
   delante, pon `terminal`. Entonces la ventana de la terminal tiene que estar
   siempre seleccionada, pero no hace falta ningún permiso.
+- `helper_name`: el nombre de quien ayuda, por ejemplo `Marco`. OneButton lo
+  dirá en voz alta cuando algo necesite a una persona.
 - `modules`: escribe `[maths-screen]` para activar la pizarra de matemáticas.
   Al arrancar se abre una página del navegador; ponla en la pantalla que la
   persona lee.
@@ -144,6 +154,8 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Quieres ver qué pasó.** `OneButton\local\session.log` guarda lo que se
   dijo y se respondió, con hora. No sale de la computadora.
 - **No escucha.** Comprueba el micrófono en los ajustes de sonido del sistema.
+- **Dice que Claude Code no tiene la sesión iniciada.** Repite el paso 2 y
+  deja la credencial fija como se explica ahí.
 - **Dice que no encuentra Claude Code.** Repite el paso 2.
 - **Se ha quedado colgado.** Cierra la ventana de la terminal y vuelve a
   arrancar (paso 4). OneButton se reinicia solo si se cae, pero no si se
@@ -151,7 +163,15 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Una actualización rompió algo.** La persona puede decir "deshacer" y
   confirmar con "adelante". Vuelve a la versión anterior.
 
-## 8. Lo que no hace falta hacer nunca
+## 8. Acceso remoto para quien mantiene OneButton
+
+Vale la pena instalar una vez un programa de escritorio remoto (Chrome
+Remote Desktop, RustDesk o similar) con acceso sin supervisión y una clave
+que sólo tenga la persona que mantiene OneButton. Así, cualquier problema
+que necesite teclado se arregla desde lejos en minutos. Díselo a la persona
+que lo usa: debe saber que existe y cuándo se usa.
+
+## 9. Lo que no hace falta hacer nunca
 
 - Crear cuentas nuevas.
 - Dar permisos en GitHub.

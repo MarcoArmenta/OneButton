@@ -52,6 +52,14 @@ mkdir -p local workspace
 [ -f local/allowed_signers ] || cp bootstrap/allowed_signers local/allowed_signers
 ONEBUTTON_HOME="$DEST" .venv/bin/python -c "from onebutton.rules import install; from onebutton.config import load; install(list(load().get('modules') or []))"
 git config gpg.ssh.allowedSignersFile "$DEST/local/allowed_signers"
+[ -f local/credentials.env ] || cp bootstrap/credentials.env.example local/credentials.env
+
+say "Comprobando la sesión de Claude Code"
+if ONEBUTTON_HOME="$DEST" .venv/bin/python -m onebutton --check-auth >/dev/null 2>&1; then
+  echo "Sesión iniciada."
+else
+  echo "AVISO: Claude Code no tiene sesión iniciada. Ver docs/login.md para dejarla fija sin teclado."
+fi
 
 if grep -Eq '^[^#[:space:]].*ssh-(ed25519|rsa|ecdsa)' local/allowed_signers; then
   say "Buscando la versión firmada más reciente"

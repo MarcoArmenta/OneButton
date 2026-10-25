@@ -64,8 +64,10 @@ user says "actualiza".
 
 ## Known gaps
 
-- Claude Code login expires. A helper has to renew it. There is no way around
-  this without storing credentials, which we will not do.
+- Sign-in. A long-lived token or API key in `local/credentials.env` keeps
+  Claude Code signed in without a browser; see `docs/login.md`. It is a
+  secret on disk, protected by the OS user account and the agent's deny rule
+  on `local/`, and it must be renewed by a helper when it lapses.
 - Whisper can mis-hear. The confirmation words were chosen to be two syllables
   and unlike everyday speech, but test them in the user's own voice.
 - A compromised microphone or a person in the room can speak commands. The

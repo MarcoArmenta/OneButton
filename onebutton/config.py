@@ -36,6 +36,7 @@ DEFAULTS = {
     "log_transcripts": True,
     "modules": [],
     "font_size": 28,
+    "helper_name": "",
     "claude_bin": "claude",
     "permission_mode": "acceptEdits",
     "claude_timeout": 600,
