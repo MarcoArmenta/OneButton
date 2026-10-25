@@ -174,25 +174,42 @@ OneButton lo tiene en cuenta, y hay cosas que ayudan desde fuera:
 - **Días malos.** Todo funciona con un solo botón y la voz, y casi todo con
   la voz sola. Que nadie se preocupe si un día no usa el segundo botón.
 
-## 7. Desbloquear la computadora sin manos
+## 7. Desbloquear la computadora: sólo él, o quien sepa la contraseña
 
 OneButton no puede desbloquear Windows: la pantalla de bloqueo está aislada
-de todos los programas, a propósito. Lo resuelve Windows:
+de todos los programas, a propósito. Y la computadora debe seguir
+bloqueándose cuando no se usa. Las dos cosas se cumplen con el
+reconocimiento facial de Windows Hello: sólo su cara o la contraseña abren
+la sesión.
 
-- **Lo mejor: reconocimiento facial de Windows Hello.** Hace falta una cámara
-  compatible con Windows Hello (con infrarrojos; muchos portátiles la traen,
-  y las externas cuestan poco). Colócala en el brazo del monitor o sobre la
-  cama, apuntando a su cara. Configuración, Cuentas, Opciones de inicio de
-  sesión, Reconocimiento facial. Desde entonces: pulsa el botón, la
-  computadora despierta, la cámara lo reconoce, y OneButton ya está en
-  marcha o arranca solo desde la carpeta Inicio.
-- **Si no hay cámara compatible: que no se bloquee.** En Opciones de inicio
-  de sesión, "Si has estado ausente, ¿cuándo debería Windows requerir que
-  vuelvas a iniciar sesión?" ponlo en Nunca. En Configuración, Sistema,
-  Energía, que no se suspenda sola o, si se suspende, que no pida
-  contraseña al volver. Quien entre en la habitación podrá usar la
-  computadora; en casa suele ser aceptable, y las cuentas en internet
-  siguen protegidas por sus propias contraseñas.
+- Hace falta una cámara compatible con Windows Hello, con infrarrojos.
+  Muchos portátiles la traen; las externas cuestan poco. Con infrarrojos
+  funciona a oscuras y no se engaña con una foto ni un vídeo.
+- Colócala en el brazo del monitor o sobre la cama, apuntando a su cara de
+  frente, a entre medio metro y un metro. Tumbado, la cámara tiene que
+  estar en el ángulo en que él mira, no en el borde de la mesa.
+- Configuración, Cuentas, Opciones de inicio de sesión, Reconocimiento
+  facial. Regístralo en la postura real en que va a usarlo, y después usa
+  "Mejorar el reconocimiento" una vez con gafas y otra sin ellas. Las gafas
+  de pantalla tapan los ojos: que se desbloquee antes de ponérselas.
+- Activa la protección reforzada contra suplantación: Configuración,
+  Cuentas, Opciones de inicio de sesión, Reconocimiento facial, "Mejorar
+  la protección contra suplantación" (si no aparece, está activada por
+  defecto en esa cámara).
+- Deja el bloqueo automático como está: "Si has estado ausente, ¿cuándo
+  debería Windows requerir que vuelvas a iniciar sesión?" en un tiempo
+  corto. Él puede bloquear cuando quiera diciendo "bloquea".
+- Mantén el PIN o la contraseña como segunda vía: la usa quien le ayuda si
+  la cámara falla, y la pide Windows tras un reinicio por actualización.
+  Sólo deben saberla él y las personas de confianza que él decida.
+
+Desde entonces: pulsa el botón, la computadora despierta, la cámara lo
+reconoce, y OneButton ya está en marcha o arranca solo desde la carpeta
+Inicio.
+
+Si todavía no hay cámara compatible, la computadora queda bloqueada hasta
+que alguien con la contraseña la abra. No la dejes sin bloqueo: la cámara es
+la solución, no el bloqueo.
 
 Comprueba además tres cosas:
 
@@ -203,9 +220,9 @@ Comprueba además tres cosas:
 - Que BitLocker no pida un PIN al arrancar. El cifrado sólo con TPM está
   bien; un PIN de arranque dejaría la computadora parada en una pantalla que
   él no puede responder.
-- Que tras una actualización de Windows, que reinicia sola, se llegue al
-  escritorio: con Windows Hello basta mirar; sin él, activa el inicio de
-  sesión automático.
+- Que tras una actualización de Windows, que reinicia sola, baste mirar a la
+  cámara para entrar. Windows Hello funciona en la primera pantalla tras el
+  reinicio.
 
 ## 8. Gafas de pantalla (Xreal, Viture y similares)
 
