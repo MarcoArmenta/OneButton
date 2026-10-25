@@ -8,9 +8,13 @@ las actualizaciones las pide la propia persona con su voz.
 
 - Una computadora con Windows 10 u 11, macOS o Linux.
 - Un micrófono USB, colocado cerca de la persona.
-- Un botón grande USB que funcione como la barra espaciadora. Casi todos los
-  botones de accesibilidad lo hacen; si el tuyo manda otra tecla, se cambia en
-  la configuración (paso 5).
+- Uno o dos botones grandes USB. El botón uno debe mandar la barra
+  espaciadora y el botón dos la tecla Intro. Casi todas las interfaces de
+  botones de accesibilidad lo hacen; si las tuyas mandan otras teclas, se
+  cambia en la configuración (paso 5). Con un solo botón funciona todo; el
+  segundo permite decir sí y no sin hablar.
+- Pregunta a la persona qué mano tiene más fuerza o más control: ahí va el
+  botón uno, que es el que más se pulsa.
 - Una pantalla donde la persona pueda leer, con letra grande.
 - Una suscripción a Claude Code, con la sesión iniciada en esa computadora.
 
@@ -67,9 +71,19 @@ Primero dirá "escuchando el ruido de la sala" (mide el ruido un segundo para
 saber cuándo hay silencio) y luego "OneButton listo". Haz la prueba tú: pulsa
 el botón, di "hola, qué hora es", pulsa otra vez. Si responde, está funcionando.
 
-El botón tiene dos gestos. **Pulsar** empieza y termina la grabación, y corta
-la voz si está hablando. **Mantener pulsado** un segundo y medio cancela lo
-que esté pasando. Enséñale los dos; el segundo da tranquilidad.
+Cada botón significa siempre lo mismo, con dos gestos: pulsar, y mantener
+pulsado un segundo y medio.
+
+- **Botón uno, pulsar:** hablar. Una vez para empezar, otra para terminar.
+  También corta la voz si está hablando.
+- **Botón uno, mantener:** sí, cuando OneButton ha hecho una pregunta. Si no
+  hay pregunta, repite la última respuesta.
+- **Botón dos, pulsar:** no. Cancela lo que esté pasando: una grabación, una
+  tarea, una pregunta. También corta la voz.
+- **Botón dos, mantener:** explica los controles en voz alta.
+
+Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
+"adelante". Enséñale los gestos con calma; el de cancelar da tranquilidad.
 
 Para que arranque solo al encender la computadora (Windows ya lo hace):
 
@@ -94,7 +108,9 @@ texto. Lo que más se cambia:
   instaladas; para forzar una, escribe aquí `Dalia` o `Jorge`. Sin voces
   naturales usa la voz clásica del sistema (`Microsoft Sabina Desktop`), que
   se entiende pero suena robótica. En macOS prueba `Paulina` o `Jorge`.
-- `button_key`: si el botón no manda espacio, escribe aquí la tecla.
+- `button_key`: si el botón uno no manda espacio, escribe aquí la tecla.
+- `button2_key`: la tecla del botón dos, normalmente `enter`. Si sólo hay un
+  botón, pon `null`.
 - `whisper_model`: `small` va bien. Si la computadora es potente, `medium`
   entiende mejor.
 - `button_source`: si el botón no reacciona cuando la terminal no está
@@ -116,8 +132,9 @@ depende del programa de terminal; suele estar en Preferencias.
 
 ## 7. Si algo falla
 
-- **No responde al botón.** Comprueba que el botón manda espacio: abre un
-  editor de texto y púlsalo. Si aparece un espacio, el botón está bien. En
+- **No responde al botón.** Comprueba qué tecla manda cada botón: abre un
+  editor de texto y púlsalos. El uno debe escribir un espacio y el dos debe
+  bajar de línea. Si es al revés, intercambia `button_key` y `button2_key`. En
   Windows no hace falta ningún permiso. En macOS, la Terminal necesita el permiso "Monitorización de entrada" en
   Privacidad y seguridad; si no quieres darlo, usa `button_source: terminal`.
 - **Corta a la persona a mitad de frase.** Sube `silence_timeout`. Si la sala

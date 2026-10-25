@@ -2,7 +2,8 @@
 # Nothing in this file is secret, but local/config.yaml is still git-ignored.
 
 language: es                 # Whisper language code: es, en, ...
-button_key: space            # Key the USB switch sends. "space" is the usual one.
+button_key: space            # Button 1, the stronger hand: talk. Key the USB switch sends; "space" is the usual one.
+button2_key: enter           # Button 2, optional: no / cancel. Set to null for a single-button setup.
 button_source: auto          # auto, global (system-wide capture), terminal (terminal must stay focused)
 silence_timeout: 90          # Seconds of silence before a recording stops on its own.
 max_recording: 600           # Hard cap in seconds for a single utterance.

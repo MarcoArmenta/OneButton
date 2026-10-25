@@ -14,6 +14,7 @@ WORKSPACE_DIR = REPO_DIR / "workspace"
 DEFAULTS = {
     "language": "es",
     "button_key": "space",
+    "button2_key": "enter",
     "button_source": "auto",
     "silence_timeout": 90,
     "max_recording": 600,

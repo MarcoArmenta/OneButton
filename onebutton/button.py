@@ -1,14 +1,14 @@
-"""One button, two gestures.
+"""One or two buttons, two gestures each.
 
-A short press and a long press (held about 1.5 s) are the whole vocabulary.
-Events are put on a queue as "short" or "long".
+Events are (button, gesture) tuples: button is "talk" or "no", gesture is
+"short" or "long" (held about 1.5 s). They are put on a queue.
 
 Two sources, chosen by `button_source` in the config:
 
 - global: pynput listens system-wide. Works out of the box on Windows. Needs
   Input Monitoring permission on macOS and X11 on Linux (Wayland does not
   allow global key capture).
-- terminal: the key is read from the terminal, which must stay focused. Works
+- terminal: keys are read from the terminal, which must stay focused. Works
   everywhere, needs no permissions. A held key auto-repeats, so a burst of
   repeats within a short window counts as a long press.
 
@@ -24,16 +24,20 @@ import sys
 import threading
 import time
 
-SHORT, LONG = "short", "long"
+from .gestures import LONG, NO, SHORT, TALK
+
 LONG_PRESS_SECONDS = 1.5
 BURST_WINDOW = 0.7       # terminal mode: window after first keypress
 BURST_COUNT = 6          # terminal mode: repeats within window that mean "held"
 
+_TERMINAL_CHARS = {"space": {" "}, "enter": {"\r", "\n"}, "tab": {"\t"}}
+
 
 class Button:
-    def __init__(self, key_name: str = "space", source: str = "auto"):
-        self.events: queue.Queue[str] = queue.Queue()
-        self.key_name = key_name
+    def __init__(self, keys: dict[str, str | None], source: str = "auto"):
+        """keys maps button name ("talk", "no") to a key name ("space", "enter", "a"); None disables."""
+        self.events: queue.Queue[tuple[str, str]] = queue.Queue()
+        self.keys = {name: k for name, k in keys.items() if k}
         self.source = source
         self._drain_only = False
         if source in ("auto", "global"):
@@ -49,14 +53,18 @@ class Button:
         if self.source == "terminal" or self._drain_only:
             self._start_terminal(drain_only=self._drain_only)
 
+    @property
+    def two_buttons(self) -> bool:
+        return NO in self.keys
+
     # ---- API -----------------------------------------------------------
-    def wait(self, timeout: float | None = None) -> str | None:
+    def wait(self, timeout: float | None = None) -> tuple[str, str] | None:
         try:
             return self.events.get(timeout=timeout)
         except queue.Empty:
             return None
 
-    def poll(self) -> str | None:
+    def poll(self) -> tuple[str, str] | None:
         return self.wait(0)
 
     def clear(self) -> None:
@@ -67,36 +75,44 @@ class Button:
     def _start_global(self) -> None:
         from pynput import keyboard
 
-        key = getattr(keyboard.Key, self.key_name, None) or keyboard.KeyCode.from_char(self.key_name)
-        state = {"down_at": None, "long_sent": False}
+        def to_key(name: str):
+            return getattr(keyboard.Key, name, None) or keyboard.KeyCode.from_char(name)
+
+        key_to_button = {to_key(k): name for name, k in self.keys.items()}
+        state = {name: {"down_at": None, "long_sent": False} for name in self.keys}
         lock = threading.Lock()
 
         def on_press(k):
-            if k != key:
+            name = key_to_button.get(k)
+            if name is None:
                 return
             with lock:
-                if state["down_at"] is None:          # ignore auto-repeat while held
-                    state["down_at"] = time.monotonic()
-                    state["long_sent"] = False
+                st = state[name]
+                if st["down_at"] is None:          # ignore auto-repeat while held
+                    st["down_at"] = time.monotonic()
+                    st["long_sent"] = False
 
         def on_release(k):
-            if k != key:
+            name = key_to_button.get(k)
+            if name is None:
                 return
             with lock:
-                down = state["down_at"]
-                state["down_at"] = None
-                if down is None or state["long_sent"]:
+                st = state[name]
+                down = st["down_at"]
+                st["down_at"] = None
+                if down is None or st["long_sent"]:
                     return
-                self.events.put(LONG if time.monotonic() - down >= LONG_PRESS_SECONDS else SHORT)
+                self.events.put((name, LONG if time.monotonic() - down >= LONG_PRESS_SECONDS else SHORT))
 
         def watcher():  # fire LONG as soon as the threshold is crossed, without waiting for release
             while True:
                 time.sleep(0.1)
                 with lock:
-                    d = state["down_at"]
-                    if d is not None and not state["long_sent"] and time.monotonic() - d >= LONG_PRESS_SECONDS:
-                        state["long_sent"] = True
-                        self.events.put(LONG)
+                    for name, st in state.items():
+                        d = st["down_at"]
+                        if d is not None and not st["long_sent"] and time.monotonic() - d >= LONG_PRESS_SECONDS:
+                            st["long_sent"] = True
+                            self.events.put((name, LONG))
 
         listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         listener.daemon = True
@@ -107,6 +123,13 @@ class Button:
         threading.Thread(target=watcher, daemon=True).start()
 
     # ---- terminal ------------------------------------------------------
+    def _char_map(self) -> dict[str, str]:
+        m: dict[str, str] = {}
+        for name, k in self.keys.items():
+            for ch in _TERMINAL_CHARS.get(k, {k[:1]}):
+                m[ch] = name
+        return m
+
     def _start_terminal(self, drain_only: bool) -> None:
         if not sys.stdin.isatty():
             if not drain_only:
@@ -126,73 +149,77 @@ class Button:
         termios.tcsetattr(fd, termios.TCSANOW, new)
         import atexit
         atexit.register(lambda: termios.tcsetattr(fd, termios.TCSANOW, old))
-        target = " " if self.key_name == "space" else self.key_name[:1]
+        chars = self._char_map()
 
-        def reader():
-            burst_start = None
-            count = 0
-            while True:
-                timeout = None if burst_start is None else max(0.0, burst_start + BURST_WINDOW - time.monotonic())
-                r, _, _ = select.select([fd], [], [], timeout)
-                now = time.monotonic()
+        def read_chars() -> str:
+            return os.read(fd, 64).decode(errors="ignore")
+
+        def swallow(seconds: float) -> None:
+            end = time.monotonic() + seconds
+            while time.monotonic() < end:
+                r, _, _ = select.select([fd], [], [], 0.05)
                 if r:
-                    ch = os.read(fd, 64).decode(errors="ignore")
-                    hits = ch.count(target)
-                    if drain_only or hits == 0:
-                        continue
-                    if burst_start is None:
-                        burst_start, count = now, hits
-                    else:
-                        count += hits
-                    if count >= BURST_COUNT:
-                        self.events.put(LONG)
-                        self._swallow(fd, 0.8)
-                        burst_start, count = None, 0
-                elif burst_start is not None:
-                    self.events.put(SHORT)
-                    burst_start, count = None, 0
+                    os.read(fd, 256)
 
-        threading.Thread(target=reader, daemon=True).start()
+        def available() -> bool:
+            return bool(select.select([fd], [], [], 0)[0])
+
+        if not drain_only:
+            threading.Thread(target=self._burst_reader, args=(chars, available, read_chars, swallow), daemon=True).start()
+        else:
+            threading.Thread(target=self._drain, args=(available, read_chars), daemon=True).start()
 
     def _start_terminal_windows(self, drain_only: bool) -> None:
-        """Same burst logic as the POSIX reader, on top of msvcrt. No echo, no Enter needed."""
         import msvcrt
 
-        target = " " if self.key_name == "space" else self.key_name[:1]
+        chars = self._char_map()
 
-        def reader():
-            burst_start = None
-            count = 0
-            while True:
-                now = time.monotonic()
-                if msvcrt.kbhit():
-                    ch = msvcrt.getwch()
-                    if drain_only or ch != target:
-                        continue
-                    if burst_start is None:
-                        burst_start, count = now, 1
-                    else:
-                        count += 1
-                    if count >= BURST_COUNT:
-                        self.events.put(LONG)
-                        end = now + 0.8
-                        while time.monotonic() < end:
-                            while msvcrt.kbhit():
-                                msvcrt.getwch()
-                            time.sleep(0.02)
-                        burst_start, count = None, 0
-                elif burst_start is not None and now - burst_start >= BURST_WINDOW:
-                    self.events.put(SHORT)
-                    burst_start, count = None, 0
-                else:
-                    time.sleep(0.01)
+        def available() -> bool:
+            return bool(msvcrt.kbhit())
 
-        threading.Thread(target=reader, daemon=True).start()
+        def read_chars() -> str:
+            out = []
+            while msvcrt.kbhit():
+                out.append(msvcrt.getwch())
+            return "".join(out)
+
+        def swallow(seconds: float) -> None:
+            end = time.monotonic() + seconds
+            while time.monotonic() < end:
+                read_chars()
+                time.sleep(0.02)
+
+        if not drain_only:
+            threading.Thread(target=self._burst_reader, args=(chars, available, read_chars, swallow), daemon=True).start()
+        else:
+            threading.Thread(target=self._drain, args=(available, read_chars), daemon=True).start()
 
     @staticmethod
-    def _swallow(fd: int, seconds: float) -> None:
-        end = time.monotonic() + seconds
-        while time.monotonic() < end:
-            r, _, _ = select.select([fd], [], [], 0.05)
-            if r:
-                os.read(fd, 256)
+    def _drain(available, read_chars) -> None:
+        while True:
+            if available():
+                read_chars()
+            time.sleep(0.02)
+
+    def _burst_reader(self, chars: dict[str, str], available, read_chars, swallow) -> None:
+        """Per-button burst detection: one key within the window = short; a burst of repeats = long."""
+        burst: dict[str, list] = {}  # name -> [start, count]
+        while True:
+            now = time.monotonic()
+            if available():
+                for ch in read_chars():
+                    name = chars.get(ch)
+                    if name is None:
+                        continue
+                    b = burst.setdefault(name, [now, 0])
+                    b[1] += 1
+                    if b[1] >= BURST_COUNT:
+                        self.events.put((name, LONG))
+                        burst.clear()
+                        swallow(0.8)   # the rest of this read and the release tail are discarded
+                        break
+            for name in list(burst):
+                if now - burst[name][0] >= BURST_WINDOW:
+                    self.events.put((name, SHORT))
+                    burst.pop(name, None)
+            time.sleep(0.01)

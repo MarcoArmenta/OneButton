@@ -1,7 +1,7 @@
 # OneButton
 
-Voice-first computing for people who cannot use a keyboard or mouse. One big
-button, a microphone, a screen, and Claude Code doing the work.
+Voice-first computing for people who cannot use a keyboard or mouse. One or
+two big buttons, a microphone, a screen, and Claude Code doing the work.
 
 Press the button, speak, press again. The words go to Claude Code, which
 writes, computes, reads email, searches, and answers aloud. Updates arrive by
@@ -20,7 +20,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | --- | --- |
 | Computer | Windows 11 (first target; natural voices recommended), Windows 10, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
 | Microphone | Any USB microphone placed near the user. |
-| One accessible button | A USB switch that sends the space bar. Most "big button" switches do this out of the box or with an adapter. |
+| One or two accessible buttons | USB switches that send the space bar (button 1, the stronger hand) and Enter (button 2). Most "big button" switch interfaces do this out of the box. One button is enough; the second adds yes and no without speech. |
 | Screen | Placed where the user can read it. Large font. |
 | Claude Code subscription | Logged in once by the helper. The login does expire occasionally and must be renewed by a helper. |
 
@@ -50,18 +50,23 @@ A full step-by-step guide in Spanish, written for non-technical helpers, is in
 
 ## Daily use
 
-One button, two gestures: a short press and a long press (held about 1.5 s).
+Each button has one meaning everywhere. Two gestures: a short press and a
+hold of about 1.5 seconds.
 
-- **Press** the button. Speak. Pauses are fine, up to 90 seconds by default.
-- **Press** again when done. The reply is spoken and shown on screen.
-- **Press** while it is speaking to stop the speech.
-- **Hold** the button to cancel anything: a recording, a task in progress, a
-  pending confirmation. Held while idle, it explains the controls.
-- During a long task it says "sigo en ello" now and then; a short press gets
-  the same reassurance.
+| | Button 1 (stronger hand) | Button 2 |
+| --- | --- | --- |
+| Press | Talk. Press to start, press again to stop. Also stops speech. | No. Cancel a recording, a task, or a question. Also stops speech. |
+| Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Help: read the controls aloud. |
+
+With a single button, a hold cancels (or explains the controls when idle),
+and yes is the spoken word "adelante".
+
+- Pauses while speaking are fine, up to 90 seconds by default.
+- During a long task it says "sigo en ello" now and then; a press of button
+  1 gets the same reassurance.
 - **"Repite"** reads the last reply again.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
-  for "adelante" before installing. Anything else cancels.
+  for a yes before installing. Anything else cancels.
 - **"Deshacer"** goes back to the previous version, after the same confirmation.
 - Before anything irreversible (sending, deleting, paying) the assistant says
   what it is about to do and asks "¿Adelante?". Only a clear yes proceeds.
@@ -90,7 +95,7 @@ Full details in [docs/security.md](docs/security.md).
 
 `local/config.yaml`, created from [config.example.yaml](config.example.yaml).
 The usual things to change: `language`, `silence_timeout`, `button_key`,
-`tts_voice`, `whisper_model`.
+`button2_key` (null for one button), `tts_voice`, `whisper_model`.
 
 ## Modules
 

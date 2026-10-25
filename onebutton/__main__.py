@@ -1,12 +1,11 @@
 """The OneButton loop.
 
-    short press -> record -> short press -> transcribe -> command or Claude turn -> speak
+    press -> record -> press -> transcribe -> command or Claude turn -> speak
 
-One button, two gestures. Short press starts and stops recording, and stops
-speech. Long press (held ~1.5 s) cancels whatever is happening: a recording,
-a Claude turn, or a pending confirmation. Local commands ("actualiza",
-"deshacer", "repite") never reach the agent, and anything that changes the
-installed version is read aloud and waits for a spoken confirmation word.
+One or two buttons, two gestures each; see gestures.py for the mapping. With
+two buttons, yes and no never depend on speech recognition. Local commands
+("actualiza", "deshacer", "repite") never reach the agent, and anything that
+changes the installed version is read aloud and waits for a yes.
 """
 
 from __future__ import annotations
@@ -19,13 +18,11 @@ import threading
 import time
 
 from . import __version__, commands, updater
-from .button import LONG, SHORT
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
+from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
+                       CONFIRMING, IDLE, RECORDING, THINKING, help_text, interpret)
 
 BANNER = "OneButton listo. Pulsa el botón y habla. Pulsa otra vez cuando termines."
-HELP = ("Pulsa una vez para hablar y otra vez para terminar. "
-        "Mantén pulsado para cancelar. Di 'repite' para oír la última respuesta, "
-        "'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
 
 
 class Loop:
@@ -41,6 +38,7 @@ class Loop:
         self.log_path = LOCAL_DIR / "session.log" if cfg.get("log_transcripts", True) else None
         self.modules: list[subprocess.Popen] = []
         install_rules(list(cfg.get("modules") or []))
+        self.two_buttons = bool(cfg.get("button2_key"))
         if dry_run:
             self.button = self.recorder = self.transcriber = self.agent = None
             return
@@ -49,7 +47,8 @@ class Loop:
         from .audio import Recorder
         from .stt import Transcriber
 
-        self.button = Button(cfg["button_key"], cfg.get("button_source", "auto"))
+        self.button = Button({"talk": cfg["button_key"], "no": cfg.get("button2_key")},
+                             cfg.get("button_source", "auto"))
         self.recorder = Recorder(cfg)
         self.transcriber = Transcriber(cfg)
         self.agent = Agent(cfg)
@@ -90,29 +89,38 @@ class Loop:
                     print(f"[módulos] no pude arrancar {name}: {exc}", file=sys.stderr)
 
     # ---- input -----------------------------------------------------------
+    def action(self, state: str, timeout: float | None = None) -> str | None:
+        ev = self.button.wait(timeout)
+        return None if ev is None else interpret(ev, state, self.two_buttons)
+
     def listen_once(self) -> str | None:
-        """Wait for a press, record until the next press, return text. None if cancelled."""
+        """Wait idle for a press, record until the next press, return text. None if cancelled."""
         if self.dry_run:
             try:
                 return input("\n[tú] ")
             except EOFError:
                 raise KeyboardInterrupt
         while True:
-            ev = self.button.wait()
-            if ev == SHORT:
-                break
-            if ev == LONG:
-                self.say(HELP)
+            act = self.action(IDLE)
+            if act == A_TALK:
+                return self.record_and_transcribe()
+            if act == A_HELP:
+                self.say(help_text(self.two_buttons))
+            elif act == A_REPEAT:
+                self.say(self.last_reply or "No hay nada que repetir todavía.", clean=True)
+
+    def record_and_transcribe(self) -> str | None:
+        """Recording starts now. Ends on the next press; None if cancelled."""
         print("🎙️  Grabando... (pulsa para terminar)", flush=True)
         stop = threading.Event()
         cancelled = threading.Event()
 
         def watch_button():
             while not stop.is_set():
-                ev = self.button.wait(0.1)
-                if ev == SHORT:
+                act = self.action(RECORDING, 0.1)
+                if act == A_STOP:
                     stop.set()
-                elif ev == LONG:
+                elif act == A_CANCEL:
                     cancelled.set()
                     stop.set()
 
@@ -129,11 +137,26 @@ class Loop:
         return text
 
     def confirm(self, question: str) -> bool:
-        self.say(question + " Di 'adelante' para continuar, o cualquier otra cosa para cancelar.")
-        heard = self.listen_once()
-        if heard is None:
-            return False
-        return commands.classify(heard, self.cfg, awaiting_confirmation=True).kind == commands.CONFIRM
+        """Ask aloud; yes is a held talk button (two-button setups) or a spoken confirm word."""
+        if self.two_buttons:
+            self.say(question + " Mantén pulsado el botón uno para decir sí, o pulsa el botón dos para cancelar. "
+                     "También puedes decir 'adelante'.")
+        else:
+            self.say(question + " Di 'adelante' para continuar, o cualquier otra cosa para cancelar.")
+        if self.dry_run:
+            heard = self.listen_once()
+            return heard is not None and commands.classify(heard, self.cfg, awaiting_confirmation=True).kind == commands.CONFIRM
+        while True:
+            act = self.action(CONFIRMING)
+            if act == A_YES:
+                return True
+            if act in (A_NO, A_CANCEL):
+                return False
+            if act == A_TALK:
+                heard = self.record_and_transcribe()
+                if heard is None:
+                    return False
+                return commands.classify(heard, self.cfg, awaiting_confirmation=True).kind == commands.CONFIRM
 
     # ---- handlers --------------------------------------------------------
     def handle_update(self) -> None:
@@ -200,13 +223,15 @@ class Loop:
         started = time.monotonic()
         next_progress = started + self.progress_interval
         while t.is_alive():
-            ev = self.button.wait(0.2)
-            if ev == LONG:
+            act = self.action(THINKING, 0.2)
+            if act == A_CANCEL:
                 self.agent.cancel()
                 t.join(5)
                 return "Cancelado."
-            if ev == SHORT:
-                self.speaker.say("Sigo trabajando. Mantén pulsado el botón si quieres cancelar.", show=False)
+            if act == A_REASSURE:
+                hint = "Pulsa el botón dos si quieres cancelar." if self.two_buttons \
+                    else "Mantén pulsado el botón si quieres cancelar."
+                self.speaker.say(f"Sigo trabajando. {hint}", show=False)
             elif self.progress_interval > 0 and time.monotonic() >= next_progress:
                 self.speaker.say("Sigo en ello.", show=False)
                 next_progress = time.monotonic() + 2 * self.progress_interval
