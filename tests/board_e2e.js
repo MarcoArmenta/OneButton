@@ -7,7 +7,7 @@ const assert = require("assert");
 
 const [ws, port] = [process.argv[2], process.argv[3]];
 const base = `http://127.0.0.1:${port}`;
-const file = path.join(ws, "pizarra", "pizarra.md");
+const file = path.join(ws, "pizarron", "pizarron.md");
 
 async function post(ev) {
   const r = await fetch(base + "/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
@@ -31,7 +31,7 @@ async function waitFile(pred) {
 }
 
 (async () => {
-  fs.writeFileSync(file, "# Pizarra\n\n## Prueba\n\nSea $x_i^2 + y$ y luego\n\n$$\\frac{a+b}{c}$$\n");
+  fs.writeFileSync(file, "# Pizarrón\n\n## Prueba\n\nSea $x_i^2 + y$ y luego\n\n$$\\frac{a+b}{c}$$\n");
   const b = await chromium.launch();
   const p = await b.newPage();
   const errors = []; p.on("pageerror", e => errors.push(String(e)));
@@ -39,23 +39,23 @@ async function waitFile(pred) {
   await p.waitForTimeout(800);
 
   // panels: config, conversation rendering, voice switching, ring menu
-  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"], theme: "glasses", layout: "wide", font_size: 30 }));
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], theme: "glasses", layout: "wide", font_size: 30 }));
   assert.strictEqual(await p.locator("#tabs button").count(), 3);
   assert.strictEqual(await p.locator(".panel:visible").count(), 3, "wide layout shows every panel");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(0, 0, 0)", "glasses theme is true black");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).fontSize), "30px");
-  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarra", "escritorio"], layout: "tabs" }));
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs" }));
   assert.strictEqual(await p.locator(".panel:visible").count(), 1, "tabs layout shows one panel");
   fs.writeFileSync(path.join(ws, "conversacion.md"), "## 10:00 Tú\n\nhola\n\n## 10:00 Asistente\n\nHola, **José**. $x^2$\n\n");
   await p.waitForTimeout(900);
   assert.ok((await p.locator("#panel-conversacion .turn").count()) === 2, "conversation turns rendered");
-  let st = await waitHandled(await post({ type: "voice", text: "pizarra" }));
-  assert.strictEqual(st.panel, "pizarra"); assert.strictEqual(st.handled, true);
-  st = await waitHandled(await post({ type: "voice", text: "escribe en la pizarra la suma de los primeros n números" }));
+  let st = await waitHandled(await post({ type: "voice", text: "pizarrón" }));
+  assert.strictEqual(st.panel, "pizarron"); assert.strictEqual(st.handled, true);
+  st = await waitHandled(await post({ type: "voice", text: "escribe en el pizarrón la suma de los primeros n números" }));
   assert.strictEqual(st.handled, false, "long sentences are not panel switches");
   st = await waitHandled(await post({ type: "menu" }));
   assert.strictEqual(st.mode, "menu");
-  await post({ type: "button", button: "no", gesture: "short" });          // -> Pizarra
+  await post({ type: "button", button: "no", gesture: "short" });          // -> Pizarrón
   await post({ type: "button", button: "no", gesture: "short" });          // -> Escritorio
   st = await waitHandled(await post({ type: "button", button: "talk", gesture: "long" }));
   assert.strictEqual(st.mode, "idle"); assert.strictEqual(st.panel, "escritorio");
@@ -72,7 +72,7 @@ async function waitFile(pred) {
   assert.strictEqual((await p.locator("#panel-escritorio .block.current").innerText()).replace(/\s+/g, ""), "3Dos.");
   st = await waitHandled(await post({ type: "exit" }));
   assert.strictEqual(st.mode, "idle");
-  await waitHandled(await post({ type: "voice", text: "pizarra" }));
+  await waitHandled(await post({ type: "voice", text: "pizarrón" }));
 
   // enter: hints for the last formula
   st = await waitHandled(await post({ type: "enter" }));

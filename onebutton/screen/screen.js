@@ -15,12 +15,12 @@
 
   const PANELS = {
     conversacion: { label: "Conversación", words: ["conversacion", "charla", "respuesta", "respuestas"], doc: "conversacion.md" },
-    pizarra:      { label: "Pizarra", words: ["pizarra", "pizarron", "formulas"], doc: "pizarra/pizarra.md" },
+    pizarron:      { label: "Pizarrón", words: ["pizarron", "pizarra", "formulas"], doc: "pizarron/pizarron.md" },
     escritorio:   { label: "Escritorio", words: ["escritorio", "escrito", "manuscrito", "articulo", "texto"], doc: null },
   };
 
   const S = {
-    panels: ["conversacion", "pizarra", "escritorio"],
+    panels: ["conversacion", "pizarron", "escritorio"],
     panel: "conversacion",
     layout: "tabs",
     mode: "idle",            // idle | menu | reading | board (board.js owns its own modes)
@@ -102,9 +102,9 @@
   }
 
   function renderBoard(text, sel) {
-    const el = document.getElementById("panel-pizarra");
+    const el = document.getElementById("panel-pizarron");
     if (sel) { const f = sel.f, h = sel.h; text = text.slice(0, f.start) + C.highlight(f.inner, h, sel.color) + text.slice(f.end); }
-    el.innerHTML = text.trim() ? mdToHtml(text) : "<p class='empty'>Pizarra vacía. Pide algo con matemáticas y aparecerá aquí.</p>";
+    el.innerHTML = text.trim() ? mdToHtml(text) : "<p class='empty'>Pizarrón vacío. Pide algo con matemáticas y aparecerá aquí.</p>";
     typeset(el);
     if (!sel && el.lastElementChild) el.lastElementChild.scrollIntoView({ block: "end" });
   }
@@ -151,9 +151,9 @@
   function ringItems() {
     const items = [];
     for (const n of S.panels) items.push({ id: "panel:" + n, label: PANELS[n].label, words: PANELS[n].words, action: () => { closeRing(); showPanel(n); } });
-    if (S.panels.includes("pizarra")) items.push({ id: "board", label: "Editar fórmula", words: ["editar", "formula", "editar formula"], action: () => { closeRing(); showPanel("pizarra", true); S.mode = "board"; BoardUI.handle({ type: "enter", seq: S.lastSeq }); } });
+    if (S.panels.includes("pizarron")) items.push({ id: "board", label: "Editar fórmula", words: ["editar", "formula", "editar formula"], action: () => { closeRing(); showPanel("pizarron", true); S.mode = "board"; BoardUI.handle({ type: "enter", seq: S.lastSeq }); } });
     items.push({ id: "read", label: "Leer", words: ["leer", "lee", "leeme"], action: () => { closeRing(); startReading(); } });
-    items.push({ id: "help", label: "Ayuda", words: ["ayuda"], action: () => { closeRing(); say("Di el nombre de un panel: conversación, pizarra o escritorio. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir."); } });
+    items.push({ id: "help", label: "Ayuda", words: ["ayuda"], action: () => { closeRing(); say("Di el nombre de un panel: conversación, pizarrón o escritorio. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir."); } });
     items.push({ id: "exit", label: "Salir", words: ["salir", "cerrar", "listo"], action: () => { closeRing(); } });
     return items;
   }
@@ -185,7 +185,7 @@
   // ---- reading aloud -------------------------------------------------------------
   function readableBlocks() {
     if (S.panel === "escritorio" && S.manuscript) return blocksOf(S.docs[S.manuscript] || "");
-    if (S.panel === "pizarra") return blocksOf(S.docs["pizarra/pizarra.md"] || "");
+    if (S.panel === "pizarron") return blocksOf(S.docs["pizarron/pizarron.md"] || "");
     const parts = (S.docs["conversacion.md"] || "").split(/^(?=## )/m).filter(x => x.trim());
     const last = parts.reverse().find(p => /^## \d\d:\d\d Asistente/.test(p));
     return last ? blocksOf(last.replace(/^## .*\n?/, "")) : [];
@@ -279,7 +279,7 @@
     else if (ev.type === "panel") showPanel(ev.name);
     else if (ev.type === "menu") { if (S.mode === "board") { BoardUI.exit(); } if (S.mode === "reading") stopReading(""); openRing(); }
     else if (ev.type === "exit") { if (S.mode === "board") BoardUI.exit(); if (S.mode === "reading") stopReading(""); closeRing(); S.mode = "idle"; }
-    else if (ev.type === "enter") { showPanel("pizarra", true); S.mode = "board"; handled = BoardUI.handle(ev); }
+    else if (ev.type === "enter") { showPanel("pizarron", true); S.mode = "board"; handled = BoardUI.handle(ev); }
     else if (ev.type === "read") startReading(ev.from);
     else if (S.mode === "board") {
       handled = BoardUI.handle(ev);
@@ -304,7 +304,7 @@
       const loads = changed.map(path => fetch("/doc/" + path, { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => { S.docs[path] = t; return path; }));
       Promise.all(loads).then(paths => {
         if (paths.includes("conversacion.md")) renderConversation();
-        if (paths.includes("pizarra/pizarra.md")) { BoardUI.setText(S.docs["pizarra/pizarra.md"]); if (S.mode !== "board") renderBoard(S.docs["pizarra/pizarra.md"]); }
+        if (paths.includes("pizarron/pizarron.md")) { BoardUI.setText(S.docs["pizarron/pizarron.md"]); if (S.mode !== "board") renderBoard(S.docs["pizarron/pizarron.md"]); }
         if (S.manuscript && paths.includes(S.manuscript)) renderManuscript();
         autoSwitch(paths);
       });
@@ -324,7 +324,7 @@
       const replied = /## \d\d:\d\d Asistente\n?[\s\S]*$/.test(conv.split(/^(?=## )/m).pop() || "");
       if (replied) {
         if (S.manuscript && turnChanges.has(S.manuscript)) showPanel("escritorio", true);
-        else if (turnChanges.has("pizarra/pizarra.md")) showPanel("pizarra", true);
+        else if (turnChanges.has("pizarron/pizarron.md")) showPanel("pizarron", true);
         else showPanel("conversacion", true);
         turnChanges.clear();
       }

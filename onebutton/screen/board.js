@@ -314,11 +314,11 @@
     loadFormulas(ui.md);
     if (!ui.formulas.length) {
       ui.mode = "idle"; render();
-      say("La pizarra no tiene fórmulas todavía. Dicta una primero.");
+      say("El pizarrón no tiene fórmulas todavía. Dicta una primero.");
       return;
     }
     ui.mode = "hints"; render();
-    say("Pizarra. Di un número para elegir, o pulsa el botón dos para recorrer y mantén el uno para elegir.");
+    say("Pizarrón. Di un número para elegir, o pulsa el botón dos para recorrer y mantén el uno para elegir.");
   }
 
   function exit() {
@@ -342,20 +342,20 @@
     ui.undo.push(ui.md);
     const md = ui.md.slice(0, f.start) + newLatex + ui.md.slice(f.end);
     ui.md = md;
-    fetch("/doc/pizarra/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => say("No pude guardar."));
+    fetch("/doc/pizarron/pizarron.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => say("No pude guardar."));
     ui.hIndex = -1; ui.pending = null; ui.path = [];
     loadFormulas(md);
     ui.mode = "hints"; render();
   }
 
   function runAction(name) {
-    if (name === "exit") { exit(); say("Pizarra cerrada. Mantén el botón dos para volver."); return; }
+    if (name === "exit") { exit(); say("Pizarrón cerrado. Mantén el botón dos para volver."); return; }
     if (name === "help") { say("Di un número para elegir una parte de la fórmula. Luego di barra, sombrero, subíndice, fracción, borrar, o lo que quieras cambiar. Di anterior o siguiente para cambiar de fórmula. Di salir para terminar."); return; }
     if (name === "undo") {
       if (!ui.undo.length) { say("No hay nada que deshacer."); return; }
       const md = ui.undo.pop();
       ui.md = md;
-      fetch("/doc/pizarra/pizarra.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => {});
+      fetch("/doc/pizarron/pizarron.md", { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: md }).catch(() => {});
       ui.hIndex = -1; ui.path = []; loadFormulas(md); ui.mode = "hints"; render();
       say("Deshecho."); return;
     }

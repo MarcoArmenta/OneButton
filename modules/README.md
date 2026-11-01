@@ -17,6 +17,6 @@ installed version.
 A module can also own a panel on the screen (`onebutton/screen/screen.js`
 knows the panels; the loop tells the page which ones are on).
 
-Shipped: `maths-screen` (panel Pizarra), `scribe` (panel Escritorio),
+Shipped: `maths-screen` (panel Pizarrón), `scribe` (panel Escritorio),
 `computadora` (the whole computer). Planned: a reader for PDFs,
 computation, email-to-video.

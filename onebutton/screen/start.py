@@ -28,16 +28,16 @@ from urllib.parse import unquote
 HERE = Path(__file__).resolve().parent
 CTYPES = {"js": "application/javascript", "css": "text/css", "woff2": "font/woff2", "html": "text/html; charset=utf-8",
           "md": "text/markdown; charset=utf-8", "txt": "text/plain; charset=utf-8"}
-WATCHED = ["conversacion.md", "pizarra/pizarra.md", "escritos/actual"]
-EMPTY_BOARD = "# Pizarra\n\n"
+WATCHED = ["conversacion.md", "pizarron/pizarron.md", "escritos/actual"]
+EMPTY_BOARD = "# Pizarrón\n\n"
 
 
 def main() -> int:
     workspace = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
     port = int(sys.argv[2]) if len(sys.argv) > 2 else int(os.environ.get("ONEBUTTON_SCREEN_PORT", 8765))
-    (workspace / "pizarra" / "archivo").mkdir(parents=True, exist_ok=True)
+    (workspace / "pizarron" / "archivo").mkdir(parents=True, exist_ok=True)
     (workspace / "escritos").mkdir(parents=True, exist_ok=True)
-    board = workspace / "pizarra" / "pizarra.md"
+    board = workspace / "pizarron" / "pizarron.md"
     if not board.exists():
         board.write_text(EMPTY_BOARD, encoding="utf-8")
 

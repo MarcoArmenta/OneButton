@@ -84,7 +84,7 @@ and yes is the spoken word "adelante".
   **"cierra esta ventana"** control any application directly when the
   `computadora` module is on. "Qué hay en pantalla" or any multi-step task
   goes to Claude, which looks at the screen and acts.
-- **"Pizarra"**, **"escritorio"**, **"conversación"** switch panels on the
+- **"Pizarrón"**, **"escritorio"**, **"conversación"** switch panels on the
   screen. **"Lee"** or **"lee el cinco"** reads the current panel aloud from
   the page, block by block; button 2 skips, a number jumps.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
@@ -136,8 +136,8 @@ side across a wide virtual display), `tablet`.
 ## Modules
 
 Optional features, each in `modules/<name>/` with its own `CLAUDE.md` that
-extends the base rules. Turn one on by listing it under `modules:` in
-`local/config.yaml`.
+extends the base rules. `maths-screen` and `scribe` are on by default; add
+`computadora` under `modules:` in `local/config.yaml` to turn it on.
 
 - `maths-screen/` **(shipped)**: a blackboard in the browser. The assistant
   writes Markdown with LaTeX to a file; the page re-renders it live in large

@@ -134,11 +134,12 @@ texto. Lo que más se cambia:
   siempre seleccionada, pero no hace falta ningún permiso.
 - `helper_name`: el nombre de quien ayuda, por ejemplo `Marco`. OneButton lo
   dirá en voz alta cuando algo necesite a una persona.
-- `modules`: escribe `[maths-screen, scribe]` para activar la pizarra de
-  matemáticas y el escritorio de redacción. Al arrancar se abre una página
-  del navegador con un panel por función; ponla a pantalla completa en la
-  pantalla que la persona lee y deja el sonido del navegador encendido,
-  porque la página habla por sí misma al leer y al editar.
+- `modules`: viene con `[maths-screen, scribe]`, el pizarrón de matemáticas
+  y el escritorio de redacción; quita uno de la lista para desactivarlo. Al
+  arrancar se abre una página del navegador con un panel por función; ponla
+  a pantalla completa en la pantalla que la persona lee y deja el sonido del
+  navegador encendido, porque la página habla por sí misma al leer y al
+  editar.
 - Con `computadora` en la lista de módulos, puede manejar cualquier
   programa: "ve a Chrome", "números" (pone un número en cada botón de la
   ventana), "pulsa el siete", "escribe ...", "cierra esta ventana", "apaga la

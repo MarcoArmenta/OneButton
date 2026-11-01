@@ -18,7 +18,7 @@ silence_rms: auto            # auto calibrates from room noise at startup; or a 
 whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish on a CPU.
 whisper_device: auto         # auto, cpu, cuda
 vad_threshold: 0.35          # Lower (0.2) if a soft voice gets cut; raise (0.5) in a noisy room.
-whisper_prompt: "Matemáticas, álgebra, carcaj, representaciones, módulo, teorema, lema, demostración, adelante, actualiza, deshacer, pizarra, escritorio."
+whisper_prompt: "Matemáticas, álgebra, carcaj, representaciones, módulo, teorema, lema, demostración, adelante, actualiza, deshacer, pizarrón, escritorio."
 
 # Voice words. Two syllables are recognised far more reliably than "sí" alone.
 confirm_words: ["adelante", "sí adelante", "confirmo"]
@@ -55,8 +55,8 @@ screen_theme: auto           # override: auto, light, dark, glasses
 screen_layout: auto          # override: tabs, wide
 screen_font_size: auto       # override: pixels, e.g. 32
 
-# Modules. Each adds rules and a panel: maths-screen -> Pizarra, scribe -> Escritorio.
-modules: []                  # e.g. [maths-screen, scribe]
+# Modules. Each adds rules and a panel: maths-screen -> Pizarrón, scribe -> Escritorio.
+modules: [maths-screen, scribe]  # add computadora to control any application
 
 # Updates. The updater refuses anything that is not a tag signed by a key in local/allowed_signers.
 repo_url: https://github.com/MarcoArmenta/OneButton.git

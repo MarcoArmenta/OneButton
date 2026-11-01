@@ -11,7 +11,7 @@ se mantiene pulsado, dice sí; el dos cancela o dice no. Con uno: pulsar para
 hablar y para parar, mantener pulsado para cancelar. Dictado, Claude Code, respuesta
 hablada sin leer código ni fórmulas símbolo a símbolo. Actualización por voz
 con confirmación, y deshacer. Una pantalla con paneles: la
-conversación, la pizarra de matemáticas con edición por números ("barra en el
+conversación, el pizarrón de matemáticas con edición por números ("barra en el
 siete"), y el escritorio para dictar artículos en tu propio estilo y corregir
 por párrafo. Lee en voz alta cualquier panel. La primera vez pregunta qué
 botones, micrófono y pantalla hay. Filtra el temblor en los botones y

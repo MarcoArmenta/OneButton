@@ -14,6 +14,7 @@ class ParseTests(unittest.TestCase):
         self.check("abre el bloc de notas", {"action": "open", "target": "bloc de notas"})
 
     def test_screen_panels_are_not_desktop_targets(self):
+        self.assertIsNone(parse("ve al pizarrón"))
         self.assertIsNone(parse("ve a la pizarra"))
         self.assertIsNone(parse("muestra el escritorio"))
 

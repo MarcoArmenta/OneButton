@@ -135,7 +135,7 @@ def _shot(m): return {"action": "screenshot"}
 def _describe(m): return {"action": "describe"}
 
 # words that mean the same thing as a verb above but must never be stolen from Claude
-_RESERVED_TARGETS = {"pizarra", "escritorio", "conversacion", "escrito", "manuscrito"}
+_RESERVED_TARGETS = {"pizarron", "pizarra", "escritorio", "conversacion", "escrito", "manuscrito"}
 
 
 _ARTICLES = re.compile(r"^(?:a |al |a la |a el |la |el |los |las |un |una |mi |el programa |la aplicacion |la app )+")

@@ -72,5 +72,5 @@ primer párrafo, si quiere que aprendas su estilo a partir de sus textos.
 - Después de redactar, di cuántos bloques escribiste y dónde, y lee en voz
   alta la primera frase. No leas todo salvo que lo pida.
 - Si no está claro dónde va una idea, propón un sitio y pregunta en una frase.
-- Las matemáticas dentro del escrito siguen las reglas de la pizarra: en voz
+- Las matemáticas dentro del escrito siguen las reglas del pizarrón: en voz
   alta en palabras, en el texto en LaTeX.

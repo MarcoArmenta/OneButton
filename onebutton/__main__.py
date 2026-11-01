@@ -49,7 +49,7 @@ class Loop:
         self.screen = Board(int(cfg.get("screen_port") or cfg.get("pizarra_port") or 8765))
         self.screen_alive_until = 0.0
         mods = list(cfg.get("modules") or [])
-        self.panels = ["conversacion"] + (["pizarra"] if "maths-screen" in mods else []) + \
+        self.panels = ["conversacion"] + (["pizarron"] if "maths-screen" in mods else []) + \
             (["escritorio"] if "scribe" in mods else [])
         self.conversation = WORKSPACE_DIR / "conversacion.md"
         self.desktop_enabled = "computadora" in mods

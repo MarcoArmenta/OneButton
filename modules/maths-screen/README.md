@@ -1,6 +1,6 @@
 # maths-screen: the blackboard
 
-A browser page that shows `workspace/pizarra/pizarra.md` in large type with
+A browser page that shows `workspace/pizarron/pizarron.md` in large type with
 LaTeX rendered, and refreshes itself whenever the file changes. The agent
 writes maths there and speaks about it in words, so formulas never get read
 aloud as symbols.
@@ -13,7 +13,7 @@ In `local/config.yaml`:
 modules: [maths-screen]
 ```
 
-Restart OneButton. The board is the **Pizarra** panel of the screen the loop
+Restart OneButton. The board is the **Pizarrón** panel of the screen the loop
 opens at start. Put that browser window on the screen the user reads.
 
 ## Needs
@@ -50,9 +50,9 @@ browser's speech engine, so turn the browser's sound on.
 
 ## Voice phrases that the rules understand
 
-- "escribe en la pizarra ..." / anything mathematical
-- "borra la pizarra" / "pizarra nueva" (archives first)
-- "guarda la pizarra como <nombre>" / "exporta a PDF"
+- "escribe en el pizarrón ..." / anything mathematical
+- "borra el pizarrón" / "pizarrón nuevo" (archives first)
+- "guarda el pizarrón como <nombre>" / "exporta a PDF"
 
 ## Files
 

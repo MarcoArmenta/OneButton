@@ -10,7 +10,7 @@ class RulesTests(unittest.TestCase):
         text = rules.assemble(["maths-screen"])
         self.assertTrue(text.startswith("# OneButton agent rules"))
         self.assertIn("<!-- módulo: maths-screen -->", text)
-        self.assertIn("pizarra", text)
+        self.assertIn("pizarrón", text)
         self.assertLess(text.index("agent rules"), text.index("módulo: maths-screen"))
 
     def test_unknown_module_ignored(self):
