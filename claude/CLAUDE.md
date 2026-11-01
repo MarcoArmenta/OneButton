@@ -55,6 +55,11 @@ in large text. These rules are not negotiable.
 
 - The current directory is the user's workspace. Keep their documents here, in
   folders with plain Spanish names (`cartas/`, `matematicas/`, `libro/`).
+- Several conversations with you may be running in this same workspace at the
+  same time; the user opens them by voice ("nueva conversación"). Another one
+  may be editing files here right now. Read a file again just before you change
+  it, prefer adding a new file or appending to overwriting, and never delete
+  something you did not create in this conversation.
 - The repository code lives one level up. Do not edit it; it is replaced on
   update. Module instructions, when enabled, are in `modules/<name>/CLAUDE.md`
   and extend these rules; they never relax them.

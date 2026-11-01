@@ -79,9 +79,17 @@ and yes is the spoken word "adelante".
   thresholds are in the config.
 - A soft voice is normalised before recognition, and the recogniser can be
   primed with the words he uses most.
-- During a long task it says "sigo en ello" now and then; a press of button
-  1 gets the same reassurance.
+- During a long task it says "sigo en ello" now and then. A press of button 1
+  lets him speak: "nueva conversación" leaves the task running and opens
+  another conversation, "cancela" stops it, anything else gets a reminder that
+  it is still working.
 - **"Repite"** reads the last reply again.
+- **"Nueva conversación"** opens another Claude Code conversation in the same
+  workspace while the current one keeps working; **"conversación dos"**
+  switches, **"qué conversaciones hay"** lists them, **"cierra esta
+  conversación"** closes one. Each is its own Claude Code session, so a long
+  task never blocks a quick question. A conversation that finishes in the
+  background is announced once; switching to it reads the reply.
 - **"Ve a Chrome"**, **"números"**, **"pulsa el siete"**, **"escribe ..."**,
   **"cierra esta ventana"** control any application directly when the
   `computadora` module is on. "Qué hay en pantalla" or any multi-step task

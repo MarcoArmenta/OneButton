@@ -1,7 +1,10 @@
 """Send one spoken turn to Claude Code and get the reply back as plain text.
 
-Each turn is `claude -p --continue` run inside the workspace directory, which
-holds CLAUDE.md (the rules) and the user's files. Tools outside the allow
+Each turn is `claude -p` run inside the workspace directory, which holds
+CLAUDE.md (the rules) and the user's files. A conversation is a Claude Code
+session: `--session-id` on its first turn, `--resume` on the rest, so several
+conversations can live side by side in the same directory (conversations.py).
+Without a session id the turn falls back to `--continue`. Tools outside the allow
 list in claude/settings.json are denied rather than prompted, so a turn can
 never hang waiting for a click. A turn can be cancelled from another thread.
 """
@@ -33,9 +36,9 @@ class Agent:
         self.workspace = WORKSPACE_DIR
         self.helper = cfg.get("helper_name") or "la persona que te ayuda"
         self.first_turn = True
-        self._proc: subprocess.Popen | None = None
+        self._procs: dict[str, subprocess.Popen] = {}
+        self._cancelled: set[str] = set()
         self._lock = threading.Lock()
-        self.cancelled = False
 
     def _settings_file(self) -> str:
         """Write the effective settings to local/ and return the path. A file survives any shell's quoting."""
@@ -58,11 +61,29 @@ class Agent:
                 deny.append(pattern)
         return json.dumps(data)
 
-    def cancel(self) -> None:
+    def cancel(self, session_id: str | None = None) -> None:
+        """Kill the turn of one conversation, or every running turn."""
         with self._lock:
-            self.cancelled = True
-            if self._proc and self._proc.poll() is None:
-                self._proc.kill()
+            for sid, proc in list(self._procs.items()):
+                if session_id in (None, sid):
+                    self._cancelled.add(sid)
+                    if proc.poll() is None:
+                        proc.kill()
+
+    def command(self, text: str, session_id: str | None = None, resume: bool = False) -> list[str]:
+        """The claude invocation for one turn. Pure, so it is tested."""
+        cmd = [
+            self.bin, "-p", text,
+            "--output-format", "text",
+            "--permission-mode", self.mode,
+            "--max-turns", str(self.max_turns),
+            "--settings", self._settings_file(),
+        ]
+        if session_id:
+            cmd += ["--resume", session_id] if resume else ["--session-id", session_id]
+        elif not self.first_turn:
+            cmd.append("--continue")
+        return cmd
 
     CONVERT_PROMPT = (
         "Convierte esta expresión matemática dictada en español a LaTeX. "
@@ -88,22 +109,16 @@ class Agent:
             out = out[1:-1].strip()
         return out
 
-    def ask(self, text: str) -> str:
-        cmd = [
-            self.bin, "-p", text,
-            "--output-format", "text",
-            "--permission-mode", self.mode,
-            "--max-turns", str(self.max_turns),
-            "--settings", self._settings_file(),
-        ]
-        if not self.first_turn:
-            cmd.append("--continue")
-        self.cancelled = False
+    def ask(self, text: str, session_id: str | None = None, resume: bool = False) -> str:
+        """One turn. Safe to call from several threads at once, one per conversation."""
+        cmd = self.command(text, session_id, resume)
+        key = session_id or "_default"
         try:
             with self._lock:
-                self._proc = subprocess.Popen(cmd, cwd=self.workspace, stdout=subprocess.PIPE,
-                                              stderr=subprocess.PIPE, text=True, env=subprocess_env())
-                proc = self._proc
+                self._cancelled.discard(key)
+                proc = subprocess.Popen(cmd, cwd=self.workspace, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, text=True, env=subprocess_env())
+                self._procs[key] = proc
         except FileNotFoundError:
             return MSG_MISSING
         try:
@@ -112,7 +127,12 @@ class Agent:
             proc.kill()
             proc.communicate()
             return MSG_TIMEOUT
-        if self.cancelled:
+        finally:
+            with self._lock:
+                self._procs.pop(key, None)
+                cancelled = key in self._cancelled
+                self._cancelled.discard(key)
+        if cancelled:
             return MSG_CANCELLED
         self.first_turn = False
         out = (out or "").strip()

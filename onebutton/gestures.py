@@ -60,7 +60,8 @@ def help_text(two_buttons: bool) -> str:
         return ("Botón uno: pulsa para hablar y otra vez para terminar. Mantenlo pulsado para decir sí "
                 "cuando te pregunte, o para repetir la última respuesta. "
                 "Botón dos: pulsa para cancelar o decir no. Mantenlo pulsado para oír esta ayuda. "
+                "Di 'nueva conversación' para empezar otra cosa mientras una tarea sigue, y 'conversación uno' para volver. "
                 "Di 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
     return ("Pulsa una vez para hablar y otra vez para terminar. Mantén pulsado para cancelar. "
-            "Di 'repite' para oír la última respuesta, 'actualiza' para buscar mejoras, "
-            "o 'deshacer' para volver a la versión anterior.")
+            "Di 'repite' para oír la última respuesta, 'nueva conversación' para empezar otra cosa mientras "
+            "una tarea sigue, 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")

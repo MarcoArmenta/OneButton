@@ -25,7 +25,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import __version__, auth, commands, desktop_commands, hardware, updater
+from . import __version__, auth, commands, conversations, desktop_commands, hardware, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
@@ -51,7 +51,9 @@ class Loop:
         mods = list(cfg.get("modules") or [])
         self.panels = ["conversacion"] + (["pizarron"] if "maths-screen" in mods else []) + \
             (["escritorio"] if "scribe" in mods else [])
-        self.conversation = WORKSPACE_DIR / "conversacion.md"
+        self.conversation = WORKSPACE_DIR / "conversacion.md"   # what the screen shows: the current conversation
+        self.convs = conversations.Registry()
+        self.convs_lock = threading.Lock()
         self.desktop_enabled = "computadora" in mods
         self.desktop_py = Path(__file__).resolve().parent.parent / "modules" / "computadora" / "desktop.py"
         self.overlay: subprocess.Popen | None = None
@@ -111,16 +113,32 @@ class Loop:
             return None
         return int(s.get("x", 0)), int(s.get("y", 0)), int(s["width"]), int(s["height"])
 
-    def converse(self, who: str, text: str) -> None:
-        """Append a turn to workspace/conversacion.md, which the screen shows in large type."""
+    def converse(self, who: str, text: str, conv: conversations.Conversation | None = None) -> None:
+        """Append a turn to the conversation's own file and, if it is the current one, to
+        workspace/conversacion.md, which the screen shows in large type."""
+        conv = conv or self.convs.current
         try:
             WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
             stamp = dt.datetime.now().strftime("%H:%M")
-            with self.conversation.open("a", encoding="utf-8") as fh:
-                fh.write(f"## {stamp} {who}\n\n{text.strip()}\n\n")
-            if self.conversation.stat().st_size > 400_000:  # keep the file light: drop the oldest half
-                parts = self.conversation.read_text(encoding="utf-8").split("\n## ")
-                self.conversation.write_text("## " + "\n## ".join(parts[len(parts) // 2:]).lstrip("# "), encoding="utf-8")
+            own = WORKSPACE_DIR / conv.file
+            own.parent.mkdir(parents=True, exist_ok=True)
+            with self.convs_lock:
+                with own.open("a", encoding="utf-8") as fh:
+                    fh.write(f"## {stamp} {who}\n\n{text.strip()}\n\n")
+                if own.stat().st_size > 400_000:  # keep the file light: drop the oldest half
+                    parts = own.read_text(encoding="utf-8").split("\n## ")
+                    own.write_text("## " + "\n## ".join(parts[len(parts) // 2:]).lstrip("# "), encoding="utf-8")
+                if conv is self.convs.current:
+                    self.conversation.write_text(own.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            pass
+
+    def show_conversation(self, conv: conversations.Conversation) -> None:
+        """Put a conversation on the screen (after a switch)."""
+        try:
+            own = WORKSPACE_DIR / conv.file
+            with self.convs_lock:
+                self.conversation.write_text(own.read_text(encoding="utf-8") if own.exists() else "", encoding="utf-8")
         except OSError:
             pass
 
@@ -199,7 +217,10 @@ class Loop:
             except EOFError:
                 raise KeyboardInterrupt
         while True:
-            act = self.action(IDLE)
+            act = self.action(IDLE, 1.0)
+            if act is None:
+                self.announce_finished()
+                continue
             if act == A_TALK:
                 return self.record_and_transcribe()
             if act == A_HELP:
@@ -540,7 +561,57 @@ class Loop:
         self.log("SISTEMA", f"deshecho a {prev}; reiniciando")
         sys.exit(3)
 
+    # ---- several conversations ---------------------------------------------
+    def announce_finished(self) -> None:
+        """Say once that a background conversation finished; the reply waits until he switches to it."""
+        for c in self.convs.unannounced():
+            c.announced = True
+            self.say(f"Terminó la conversación {conversations.spoken(c.n)}. Di 'conversación {conversations.spoken(c.n)}' para oírla.")
+
+    def handle_conversation(self, cmd: dict) -> None:
+        kind, n = cmd["kind"], cmd.get("n")
+        if kind == conversations.NEW:
+            c = self.convs.new()
+            self.show_conversation(c)
+            self.last_reply = ""
+            self.log("SISTEMA", f"conversación {c.n} abierta")
+            self.say(f"Conversación {conversations.spoken(c.n)}. Te escucho.")
+        elif kind == conversations.SWITCH:
+            c = self.convs.switch(n)
+            if not c:
+                self.say(f"No hay conversación {conversations.spoken(n)}. {self.convs.summary()}")
+                return
+            self.show_conversation(c)
+            self.last_reply = c.last_reply
+            self.log("SISTEMA", f"conversación {c.n}")
+            if c.state == conversations.DONE:
+                c.state, c.announced = conversations.IDLE, True
+                self.say(f"Conversación {conversations.spoken(c.n)}. Terminó.")
+                self.say(c.last_reply, clean=True)
+            elif c.state == conversations.WORKING:
+                self.say(f"Conversación {conversations.spoken(c.n)}. Sigue trabajando; te aviso cuando termine.")
+            else:
+                self.say(f"Conversación {conversations.spoken(c.n)}.")
+        elif kind == conversations.CLOSE:
+            c = self.convs.get(n) if n else self.convs.current
+            if not c:
+                self.say(f"No hay conversación {conversations.spoken(n)}.")
+                return
+            if c.state == conversations.WORKING and self.agent:
+                self.agent.cancel(c.session_id)
+            self.convs.close(c.n)
+            self.show_conversation(self.convs.current)
+            self.last_reply = self.convs.current.last_reply
+            self.log("SISTEMA", f"conversación {c.n} cerrada")
+            self.say(f"Cerrada la conversación {conversations.spoken(c.n)}. Estás en la {conversations.spoken(self.convs.current.n)}.")
+        elif kind == conversations.LIST:
+            self.say(self.convs.summary())
+
     def handle_text(self, text: str) -> None:
+        conv_cmd = conversations.parse(text)
+        if conv_cmd:
+            self.handle_conversation(conv_cmd)
+            return
         if self.screen_try(text):
             return
         if self.desktop_enabled and not self.dry_run:
@@ -552,44 +623,87 @@ class Loop:
         self.handle_claude(text)
 
     def handle_claude(self, text: str) -> None:
-        self.converse("Tú", text)
+        conv = self.convs.current
+        if conv.state == conversations.WORKING:
+            self.say(f"La conversación {conversations.spoken(conv.n)} sigue trabajando. "
+                     "Di 'nueva conversación' para hablar de otra cosa mientras tanto, o espera a que termine.")
+            return
+        if not conv.title:
+            conv.title = conversations.short_title(text)
+        self.converse("Tú", text, conv)
         if self.dry_run:
-            reply = f"(simulado) Recibí: {text}"
-        else:
-            reply = self.ask_with_button(text)
-        self.last_reply = reply
-        self.log("BOT", reply)
-        self.converse("Asistente", reply)
-        print(f"\n{reply}\n", flush=True)
-        self.say(reply, clean=True)
+            self.deliver(conv, f"(simulado) Recibí: {text}")
+            return
+        conv.state = conversations.WORKING
+        conv.announced = True
+        self.ask_in_background(conv, text)
+        self.wait_for(conv)
 
-    def ask_with_button(self, text: str) -> str:
-        """Run the Claude turn in a thread; a long press cancels it, a short press reassures."""
-        print("🤖 Pensando...", flush=True)
-        result: dict = {}
+    def ask_in_background(self, conv: conversations.Conversation, text: str) -> None:
+        """Run the Claude turn in a thread of its own; the conversation records the reply when done."""
+        print(f"🤖 Pensando... (conversación {conv.n})", flush=True)
 
         def work():
-            result["reply"] = self.agent.ask(text)
+            reply = self.agent.ask(text, conv.session_id, resume=conv.started)
+            conv.started = True
+            conv.last_reply = reply
+            self.log("BOT", f"[{conv.n}] {reply}")
+            self.converse("Asistente", reply, conv)
+            conv.state = conversations.DONE   # wait_for() or a later switch speaks it
 
-        t = threading.Thread(target=work, daemon=True)
-        t.start()
+        threading.Thread(target=work, daemon=True).start()
+
+    def deliver(self, conv: conversations.Conversation, reply: str | None = None) -> None:
+        """Speak a finished reply of the current conversation."""
+        if reply is not None:
+            conv.last_reply = reply
+            self.log("BOT", f"[{conv.n}] {reply}")
+            self.converse("Asistente", reply, conv)
+        conv.state, conv.announced = conversations.IDLE, True
+        self.last_reply = conv.last_reply
+        print(f"\n{conv.last_reply}\n", flush=True)
+        self.say(conv.last_reply, clean=True)
+
+    def wait_for(self, conv: conversations.Conversation) -> None:
+        """Stay with a working conversation: button 2 cancels it, button 1 lets him speak.
+
+        Saying 'nueva conversación' or 'conversación dos' leaves this one working in the
+        background and returns to the main loop in the other conversation.
+        """
         self.button.clear()
-        started = time.monotonic()
-        next_progress = started + self.progress_interval
-        while t.is_alive():
+        next_progress = time.monotonic() + self.progress_interval
+        while conv.state == conversations.WORKING:
             act = self.action(THINKING, 0.2)
             if act == A_CANCEL:
-                self.agent.cancel()
-                t.join(5)
-                return "Cancelado."
+                self.agent.cancel(conv.session_id)
+                for _ in range(50):
+                    if conv.state != conversations.WORKING:
+                        break
+                    time.sleep(0.1)
+                conv.state, conv.announced = conversations.IDLE, True
+                self.say("Cancelado.")
+                return
             if act == A_REASSURE:
-                hint = "Pulsa el botón dos si quieres cancelar." if self.two_buttons \
-                    else "Mantén pulsado el botón si quieres cancelar."
-                self.speaker.say(f"Sigo trabajando. {hint}", show=False)
+                heard = self.record_and_transcribe()
+                if heard is None:
+                    continue
+                cmd = conversations.parse(heard)
+                if cmd:
+                    self.handle_conversation(cmd)
+                    if self.convs.current is not conv:
+                        conv.announced = False   # finishing in the background will be announced
+                        return
+                    continue
+                if commands.normalize(heard) in {commands.normalize(w) for w in self.cfg["cancel_words"]}:
+                    self.agent.cancel(conv.session_id)
+                    continue
+                self.say(f"La conversación {conversations.spoken(conv.n)} sigue trabajando. "
+                         "Di 'nueva conversación' para hablar de otra cosa mientras tanto, o espera.")
             elif self.progress_interval > 0 and time.monotonic() >= next_progress:
                 self.speaker.say("Sigo en ello.", show=False)
                 next_progress = time.monotonic() + 2 * self.progress_interval
-        return result.get("reply", "")
+        if conv.state == conversations.DONE:
+            self.deliver(conv)
 
     # ---- main ------------------------------------------------------------
     def run_setup(self) -> None:
