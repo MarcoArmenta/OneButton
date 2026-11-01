@@ -10,6 +10,23 @@ class HardwareTests(unittest.TestCase):
         self.assertEqual(hardware.suggest_preset([{"width": 3840, "height": 1080}]), "glasses")
         self.assertEqual(hardware.suggest_preset([]), "monitor")
 
+    def test_page_screen_choice(self):
+        one = [{"width": 1920, "height": 1080, "primary": True}]
+        two = one + [{"width": 2560, "height": 1440, "primary": False}]
+        wide = two + [{"width": 3840, "height": 1080, "primary": False}]
+        self.assertIsNone(hardware.page_screen([]))
+        self.assertIs(hardware.page_screen(one), one[0])
+        self.assertIs(hardware.page_screen(two), two[1], "second monitor by default; the terminal keeps the first")
+        self.assertIs(hardware.page_screen(two, "primary"), two[0])
+        self.assertIs(hardware.page_screen(two, "secondary"), two[1])
+        self.assertIs(hardware.page_screen(one, "secondary"), one[0])
+        self.assertIs(hardware.page_screen(two, 0), two[0])
+        self.assertIs(hardware.page_screen(two, "1"), two[1])
+        self.assertIs(hardware.page_screen(two, 7), two[0])
+        self.assertIs(hardware.page_screen(wide), wide[2], "glasses win")
+        self.assertEqual(DEFAULTS["screen_preset"], "auto")
+        self.assertEqual(DEFAULTS["screen_display"], "auto")
+
     def test_summary(self):
         s = hardware.spoken_summary({"buttons": {"talk": "space"}, "microphones": [{"index": 0}], "screens": [{}]})
         self.assertEqual(s, "Tengo un botón, micrófono, una pantalla.")

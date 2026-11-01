@@ -13,8 +13,10 @@ las actualizaciones las pide la propia persona con su voz.
   botones de accesibilidad lo hacen; si las tuyas mandan otras teclas, se
   cambia en la configuración (paso 5). Con un solo botón funciona todo; el
   segundo permite decir sí y no sin hablar.
-- Pregunta a la persona qué mano tiene más fuerza o más control: ahí va el
-  botón uno, que es el que más se pulsa.
+- No hace falta saber cuál botón es cuál: la primera vez OneButton pide
+  pulsar el de la izquierda y luego el de la derecha, y propone hablar con el
+  derecho. La persona lo cambia pulsando el izquierdo cuando se lo ofrece.
+  Colócalos donde más control tenga.
 - Una pantalla donde la persona pueda leer, con letra grande.
 - Una suscripción a Claude Code, con la sesión iniciada en esa computadora.
 
@@ -66,10 +68,11 @@ aplicaciones de escritorio accedan al micrófono" activado.
 ## 4. Arrancar y la primera vez
 
 La primera vez que arranca, OneButton no sabe qué hay conectado y lo
-pregunta en voz alta: pide pulsar el botón para hablar, luego el segundo
-botón si lo hay (si no, se espera y sigue), después pide decir "hola, me
-llamo..." para comprobar el micrófono, y mira qué pantalla hay. Guarda todo
-y se reinicia. Dura un minuto. Si cambia algo del equipo, la persona puede
+pregunta en voz alta: pide pulsar el botón de la izquierda, luego el de la
+derecha (si sólo hay uno, se espera y sigue), ofrece cambiar con cuál se
+habla, después pide decir "hola, me llamo..." para comprobar el micrófono, y
+mira qué pantallas hay: con dos, la página se abre a pantalla completa en la
+segunda y la terminal se queda en la primera. Guarda todo y se reinicia. Dura un minuto. Si cambia algo del equipo, la persona puede
 decir "configura los botones" y se repite.
 
 **Windows.** Doble clic en el acceso directo "OneButton" del Escritorio. El
@@ -89,11 +92,11 @@ el botón, di "hola, qué hora es", pulsa otra vez. Si responde, está funcionan
 Cada botón significa siempre lo mismo, con dos gestos: pulsar, y mantener
 pulsado un segundo y medio.
 
-- **Botón uno, pulsar:** hablar. Una vez para empezar, otra para terminar.
+- **Botón uno (el derecho, salvo que él lo cambie), pulsar:** hablar. Una vez para empezar, otra para terminar.
   También corta la voz si está hablando.
 - **Botón uno, mantener:** sí, cuando OneButton ha hecho una pregunta. Si no
   hay pregunta, repite la última respuesta.
-- **Botón dos, pulsar:** no. Cancela lo que esté pasando: una grabación, una
+- **Botón dos (el izquierdo), pulsar:** no. Cancela lo que esté pasando: una grabación, una
   tarea, una pregunta. También corta la voz.
 - **Botón dos, mantener:** abre el menú de la pantalla: ir a un panel, editar
   una fórmula, leer en voz alta, ayuda.
@@ -136,10 +139,10 @@ texto. Lo que más se cambia:
   dirá en voz alta cuando algo necesite a una persona.
 - `modules`: viene con `[maths-screen, scribe]`, el pizarrón de matemáticas
   y el escritorio de redacción; quita uno de la lista para desactivarlo. Al
-  arrancar se abre una página del navegador con un panel por función; ponla
-  a pantalla completa en la pantalla que la persona lee y deja el sonido del
-  navegador encendido, porque la página habla por sí misma al leer y al
-  editar.
+  arrancar se abre una página del navegador con un panel por función, a
+  pantalla completa y en la segunda pantalla si hay dos (hace falta Edge o
+  Chrome; Windows 11 ya trae Edge). Deja el sonido del navegador encendido,
+  porque la página habla por sí misma al leer y al editar.
 - Con `computadora` en la lista de módulos, puede manejar cualquier
   programa: "ve a Chrome", "números" (pone un número en cada botón de la
   ventana), "pulsa el siete", "escribe ...", "cierra esta ventana", "apaga la
@@ -237,15 +240,16 @@ José Antonio son mejores que un monitor fijo: la pantalla va con él.
   virtual ancha o varias pantallas (Xreal Nebula, Viture SpaceWalker),
   instálalo y elige la pantalla ancha: OneButton pone los tres paneles uno
   al lado del otro y aprovecha todo el ancho.
-- En `local/config.yaml` deja `screen_preset: glasses`. Fondo negro (en estas
-  gafas el negro es transparente y descansa la vista), letra grande y todos
-  los paneles visibles. El panel activo lleva un marco azul.
-- Pon el navegador a pantalla completa (F11) en las gafas.
+- OneButton reconoce solo la pantalla ancha de las gafas y pasa al modo
+  gafas: fondo negro (en estas gafas el negro es transparente y descansa la
+  vista), letra grande y todos los paneles visibles. El panel activo lleva un
+  marco azul. Para forzarlo, `screen_preset: glasses` en `local/config.yaml`.
+- La página se abre sola a pantalla completa en las gafas.
 - Las gafas no sirven de micrófono. Usa un micrófono de solapa inalámbrico o
   uno de mesa cerca de él; en `input_device` puedes fijar cuál.
 - Prueba media hora seguida el primer día y pregúntale por el cansancio de
-  ojos y de cuello. Si se cansa, baja `screen_font_size` o vuelve a
-  `screen_preset: monitor` en un monitor normal.
+  ojos y de cuello. Si se cansa, baja `screen_font_size` o vuelve a un
+  monitor normal: OneButton lo detecta solo al arrancar.
 
 ## 9. Letra grande
 

@@ -99,6 +99,33 @@ class ServerTests(ServerMixin, unittest.TestCase):
         self.assertFalse(Board(free_port()).available())
 
 
+class BrowserLaunchTests(unittest.TestCase):
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("onebutton_screen_start", START)
+        self.start = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.start)
+
+    def test_rect_parsing(self):
+        self.assertEqual(self.start.parse_rect("1920,0,2560,1440"), (1920, 0, 2560, 1440))
+        self.assertIsNone(self.start.parse_rect(None)); self.assertIsNone(self.start.parse_rect(""))
+        self.assertIsNone(self.start.parse_rect("1,2,3")); self.assertIsNone(self.start.parse_rect("0,0,0,0"))
+
+    def test_command_is_a_fresh_fullscreen_app_window(self):
+        cmd = self.start.browser_command("/x/msedge.exe", "http://127.0.0.1:8765/", (1920, 0, 2560, 1440), Path("/p"))
+        self.assertEqual(cmd[0], "/x/msedge.exe")
+        self.assertIn("--app=http://127.0.0.1:8765/", cmd)
+        self.assertIn("--user-data-dir=" + str(Path("/p")), cmd, "own profile so a running browser cannot swallow the flags")
+        self.assertIn("--start-fullscreen", cmd)
+        self.assertIn("--window-position=1920,0", cmd); self.assertIn("--window-size=2560,1440", cmd)
+        cmd = self.start.browser_command("/x/chrome", "http://127.0.0.1:8765/", None, Path("/p"))
+        self.assertFalse(any(a.startswith("--window-") for a in cmd))
+
+    def test_find_browser_never_raises(self):
+        found = self.start.find_browser()
+        self.assertTrue(found is None or isinstance(found, str))
+
+
 @unittest.skipUnless(shutil.which("node"), "needs node")
 class CoreTests(unittest.TestCase):
     def test_core(self):

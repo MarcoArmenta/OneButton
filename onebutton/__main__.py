@@ -88,8 +88,11 @@ class Loop:
         """Theme, layout and text size for the page. The "glasses" preset suits OLED display glasses."""
         preset = self.cfg.get("screen_preset") or "auto"
         if preset == "auto":
-            info = hardware.load() or {}
-            preset = info.get("suggested_preset") or hardware.suggest_preset(hardware.screens())
+            found = hardware.screens()
+            if found:
+                preset = hardware.suggest_preset(found)
+            else:  # cannot look right now: what the first run saw
+                preset = (hardware.load() or {}).get("suggested_preset") or "monitor"
         look = {"monitor": {"theme": "auto", "layout": "tabs", "font_size": 28},
                 "glasses": {"theme": "glasses", "layout": "wide", "font_size": 30},
                 "tablet": {"theme": "auto", "layout": "tabs", "font_size": 24}}.get(preset, {})
@@ -99,6 +102,14 @@ class Loop:
         if look.get("theme") == "auto":
             look.pop("theme")
         return look
+
+    def page_rect(self) -> tuple[int, int, int, int] | None:
+        """(x, y, width, height) of the screen the page should fill, or None when unknown."""
+        found = hardware.screens() or (hardware.load() or {}).get("screens") or []
+        s = hardware.page_screen(found, self.cfg.get("screen_display", "auto"))
+        if not s or not s.get("width"):
+            return None
+        return int(s.get("x", 0)), int(s.get("y", 0)), int(s["width"]), int(s["height"])
 
     def converse(self, who: str, text: str) -> None:
         """Append a turn to workspace/conversacion.md, which the screen shows in large type."""
@@ -151,6 +162,9 @@ class Loop:
             env = dict(os.environ)
             if not self.cfg.get("open_browser", True):
                 env["ONEBUTTON_NO_BROWSER"] = "1"
+            rect = self.page_rect()
+            if rect:
+                env["ONEBUTTON_SCREEN_RECT"] = ",".join(str(v) for v in rect)
             try:
                 self.modules.append(subprocess.Popen(
                     [sys.executable, str(screen), str(WORKSPACE_DIR), str(self.screen.base.rsplit(":", 1)[1])],

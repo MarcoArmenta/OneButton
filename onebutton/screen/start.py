@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -30,6 +32,75 @@ CTYPES = {"js": "application/javascript", "css": "text/css", "woff2": "font/woff
           "md": "text/markdown; charset=utf-8", "txt": "text/plain; charset=utf-8"}
 WATCHED = ["conversacion.md", "pizarron/pizarron.md", "escritos/actual"]
 EMPTY_BOARD = "# Pizarrón\n\n"
+
+
+# Chromium-based browsers honour window flags, so the page can open full screen on a
+# chosen monitor with no keyboard. Edge ships with Windows 11; Chrome is common everywhere.
+BROWSERS = {
+    "nt": [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+    ],
+    "darwin": [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ],
+    "posix": ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"],
+}
+
+
+def find_browser() -> str | None:
+    """Path of a Chromium-based browser, or None."""
+    key = "nt" if os.name == "nt" else ("darwin" if sys.platform == "darwin" else "posix")
+    for cand in BROWSERS[key]:
+        if os.path.sep in cand or "/" in cand:
+            if os.path.isfile(cand):
+                return cand
+        elif shutil.which(cand):
+            return shutil.which(cand)
+    return None
+
+
+def parse_rect(text: str | None) -> tuple[int, int, int, int] | None:
+    """'x,y,w,h' -> (x, y, w, h); None when missing or malformed."""
+    if not text:
+        return None
+    try:
+        x, y, w, h = (int(v) for v in text.split(","))
+    except ValueError:
+        return None
+    return (x, y, w, h) if w > 0 and h > 0 else None
+
+
+def browser_command(exe: str, url: str, rect: tuple[int, int, int, int] | None, profile_dir: Path) -> list[str]:
+    """A fresh app window (no tabs or address bar), full screen on `rect` when given.
+
+    The private profile dir makes it a new process even when the user's own browser is
+    already open; otherwise the running browser would ignore every window flag.
+    """
+    cmd = [exe, f"--app={url}", f"--user-data-dir={profile_dir}", "--no-first-run", "--no-default-browser-check",
+           "--disable-session-crashed-bubble", "--autoplay-policy=no-user-gesture-required", "--start-fullscreen"]
+    if rect:
+        x, y, w, h = rect
+        cmd += [f"--window-position={x},{y}", f"--window-size={w},{h}"]
+    return cmd
+
+
+def open_page(url: str, rect: tuple[int, int, int, int] | None, profile_dir: Path) -> None:
+    exe = find_browser()
+    if exe:
+        try:
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.Popen(browser_command(exe, url, rect, profile_dir),
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except OSError as exc:
+            print(f"[pantalla] no pude abrir {exe}: {exc}", file=sys.stderr)
+    webbrowser.open(url)
 
 
 def main() -> int:
@@ -166,7 +237,9 @@ def main() -> int:
     url = f"http://127.0.0.1:{port}/"
     print(f"pantalla en {url} ({workspace})", flush=True)
     if os.environ.get("ONEBUTTON_NO_BROWSER") != "1":
-        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+        rect = parse_rect(os.environ.get("ONEBUTTON_SCREEN_RECT"))
+        profile = Path(os.environ.get("ONEBUTTON_HOME", HERE.parent.parent)) / "local" / "browser"
+        threading.Timer(0.5, lambda: open_page(url, rect, profile)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

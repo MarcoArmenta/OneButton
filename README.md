@@ -22,8 +22,8 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | --- | --- |
 | Computer | Windows 11 (first target; natural voices recommended), Windows 10, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
 | Microphone | A wireless lapel microphone, or a desk microphone near the user. Display glasses do not provide one. |
-| One or two accessible buttons | USB switches that send the space bar (button 1, the stronger hand) and Enter (button 2). Most "big button" switch interfaces do this out of the box. One button is enough; the second adds yes and no without speech. |
-| Screen | A monitor, or USB-C display glasses (Xreal, Viture and similar), which the `glasses` preset is tuned for: true black, large type, all panels side by side. |
+| One or two accessible buttons | USB switches that send a key each, typically the space bar and Enter. Most "big button" switch interfaces do this out of the box. The first run learns them by side ("pulsa el de la izquierda", then the right one), so whoever places them never has to know which is which. One button is enough; the second adds yes and no without speech. |
+| Screen | One or two monitors, or USB-C display glasses (Xreal, Viture and similar). Looked at on every start: with two monitors the page opens full screen on the second and the terminal stays on the first; a wide virtual display switches to the `glasses` preset (true black, large type, all panels side by side). Full screen without a keyboard needs Edge or Chrome. |
 | Windows Hello infrared camera | Unlocking stays as secure as a password: only his face, or the password typed by someone he trusts. The computer keeps locking when idle. OneButton cannot type into the lock screen, by design. See the helper guide. |
 | Claude Code subscription | Signed in once by the helper, then kept signed in with a long-lived token so nobody has to click "Authorize" again. See [docs/login.md](docs/login.md). |
 
@@ -53,17 +53,19 @@ A full step-by-step guide in Spanish, written for non-technical helpers, is in
 
 ## First run
 
-The first time it starts, the loop asks aloud for the button he will talk
-with, then for a second button if there is one, checks the microphone by
-asking him to say his name, and looks at the screens. It writes what it
-found to the local config and restarts. "Configura los botones" repeats it.
+The first time it starts, the loop asks aloud for the left button, then the
+right one (with a single button it waits and moves on), proposes talking with
+the right one and swaps if he presses the left, checks the microphone by
+asking him to say his name, and looks at the screens. It writes what it found
+to the local config and restarts. Screens are looked at again on every start.
+"Configura los botones" repeats it.
 
 ## Daily use
 
 Each button has one meaning everywhere. Two gestures: a short press and a
 hold of about 1.5 seconds.
 
-| | Button 1 (stronger hand) | Button 2 |
+| | Button 1 (right, unless he swapped) | Button 2 (left) |
 | --- | --- | --- |
 | Press | Talk. Press to start, press again to stop. Also stops speech. | No. Cancel a recording, a task, or a question. Also stops speech. |
 | Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the screen's ring menu: panels, formula editing, read aloud, help. |
@@ -131,7 +133,11 @@ during a turn shows the board, a drafted paragraph shows the manuscript. It
 works with no internet, speaks for itself through the browser, and is driven
 by the same two buttons through the loop. The terminal is for the helper.
 Presets: `monitor` (tabs), `glasses` (black background, every panel side by
-side across a wide virtual display), `tablet`.
+side across a wide virtual display), `tablet`; `screen_preset: auto` picks one
+from the screens that are plugged in at start. With two monitors the page
+fills the second one and the terminal stays on the first (`screen_display`).
+The page opens as a full-screen app window in Edge or Chrome; without either,
+the default browser opens a tab.
 
 ## Modules
 
