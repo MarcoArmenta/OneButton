@@ -36,9 +36,16 @@ terminal escribe `claude setup-token`, copia el código largo que aparece y
 pégalo en `OneButton\local\credentials.env` en la línea que empieza por
 `CLAUDE_CODE_OAUTH_TOKEN=`. Más detalles y alternativas en `docs/login.md`.
 
-Si algún día OneButton dice "Claude Code no tiene la sesión iniciada", hay
-que repetir esto. Avisará nombrando a la persona de contacto que pongas en
-`helper_name` en la configuración.
+Si algún día OneButton dice "Claude Code no tiene la sesión iniciada", la
+persona puede decir "inicia sesión" (OneButton lo propone y lo empieza solo):
+se abre el navegador en la página de Claude y, si el navegador sigue con la
+sesión de claude.ai abierta, basta con pulsar "Autorizar", que hace por voz
+con "números" y el número del botón. El código que aparece después lo lee
+OneButton de la propia página y se lo pasa a Claude Code; no hay que copiar
+nada. Deja por eso el navegador predeterminado con la sesión de claude.ai
+iniciada ("mantener la sesión"). Si la página pide contraseña, hace falta una
+persona; OneButton lo dirá nombrando a quien pongas en `helper_name`. Como
+último recurso, repite lo de arriba.
 
 ## 3. Instalar OneButton
 
@@ -145,13 +152,14 @@ texto. Lo que más se cambia:
   siempre seleccionada, pero no hace falta ningún permiso.
 - `helper_name`: el nombre de quien ayuda, por ejemplo `Marco`. OneButton lo
   dirá en voz alta cuando algo necesite a una persona.
-- `modules`: viene con `[maths-screen, scribe]`, el pizarrón de matemáticas
-  y el escritorio de redacción; quita uno de la lista para desactivarlo. Al
+- `modules`: viene con `[maths-screen, scribe, computadora]`: el pizarrón de
+  matemáticas, el escritorio de redacción y el manejo de cualquier programa;
+  quita uno de la lista para desactivarlo. Al
   arrancar se abre una página del navegador con un panel por función, a
   pantalla completa y en la segunda pantalla si hay dos (hace falta Edge o
   Chrome; Windows 11 ya trae Edge). Deja el sonido del navegador encendido,
   porque la página habla por sí misma al leer y al editar.
-- Con `computadora` en la lista de módulos, puede manejar cualquier
+- Con `computadora` (activado de serie) puede manejar cualquier
   programa: "ve a Chrome", "números" (pone un número en cada botón de la
   ventana), "pulsa el siete", "escribe ...", "cierra esta ventana", "apaga la
   computadora" (pregunta antes). Lo que no sea una orden corta se lo pide a
@@ -281,8 +289,9 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Quieres ver qué pasó.** `OneButton\local\session.log` guarda lo que se
   dijo y se respondió, con hora. No sale de la computadora.
 - **No escucha.** Comprueba el micrófono en los ajustes de sonido del sistema.
-- **Dice que Claude Code no tiene la sesión iniciada.** Repite el paso 2 y
-  deja la credencial fija como se explica ahí.
+- **Dice que Claude Code no tiene la sesión iniciada.** Que diga "inicia
+  sesión" y pulse Autorizar en el navegador (paso 2). Si no basta, repite el
+  paso 2 y deja la credencial fija como se explica ahí.
 - **Dice que no encuentra Claude Code.** Repite el paso 2.
 - **Se ha quedado colgado.** Cierra la ventana de la terminal y vuelve a
   arrancar (paso 4). OneButton se reinicia solo si se cae, pero no si se

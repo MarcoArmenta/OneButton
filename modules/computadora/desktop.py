@@ -15,6 +15,7 @@ calls it to act on what it sees in a screenshot. Every command prints JSON.
     desktop.py move <x> <y>
     desktop.py screenshot [path]             PNG of the whole screen; prints {"path", "width", "height"}
     desktop.py elements                      clickable controls of the active window: [{"n", "name", "type", "x", "y"}]
+    desktop.py find_text <regex>             texts and field values of the active window matching <regex>: [str]
     desktop.py volume <up|down|mute>
     desktop.py power <sleep|shutdown|restart>   (the loop confirms first; the agent must too)
 
@@ -244,6 +245,45 @@ def elements(limit: int = 80) -> list[dict]:
     return uniq
 
 
+def find_text(pattern: str, limit: int = 20) -> list[str]:
+    """Strings in the foreground window (names, texts, edit values) that match `pattern`.
+
+    Used by the login flow to read the authorisation code off the browser page.
+    """
+    if not WIN:
+        return []
+    import re as _re
+    from pywinauto import Desktop
+    import ctypes
+    rx = _re.compile(pattern)
+    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    try:
+        win = Desktop(backend="uia").window(handle=hwnd)
+        descendants = win.descendants()
+    except Exception:
+        return []
+    found: list[str] = []
+    for el in descendants:
+        texts = []
+        try:
+            texts.append(el.element_info.name or "")
+        except Exception:
+            pass
+        for getter in (lambda: el.iface_value.CurrentValue, lambda: el.legacy_properties().get("Value", ""),
+                       lambda: el.window_text()):
+            try:
+                texts.append(str(getter() or ""))
+            except Exception:
+                pass
+        for t in texts:
+            for m in rx.findall(t):
+                if m not in found:
+                    found.append(m)
+        if len(found) >= limit:
+            break
+    return found
+
+
 # ---- volume and power ----------------------------------------------------------------
 def volume(what: str) -> int:
     import pyautogui
@@ -294,6 +334,8 @@ def main(argv: list[str]) -> int:
             return screenshot(args[0] if args else None)
         if cmd == "elements":
             return out(elements())
+        if cmd == "find_text":
+            return out(find_text(" ".join(args)))
         if cmd == "volume":
             return volume(args[0])
         if cmd == "power":

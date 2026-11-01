@@ -26,7 +26,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import __version__, auth, commands, conversations, desktop_commands, hardware, updater
+from . import __version__, auth, commands, conversations, desktop_commands, hardware, login, updater
 from .config import LOCAL_DIR, WORKSPACE_DIR, load
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
@@ -545,6 +545,107 @@ class Loop:
         self.log("SISTEMA", f"instalada {rel.tag}; reiniciando")
         sys.exit(3)  # bin/onebutton restarts us on the new version
 
+    def handle_login(self, reason: str = "") -> None:
+        """Sign Claude Code in again from the browser, with no keyboard anywhere.
+
+        `claude auth login` runs in a pseudo-terminal and opens the browser on the claude.ai
+        authorisation page. He clicks "Autorizar" with the numbered overlay ("números", then the
+        number). The page then shows a code the CLI is waiting for: the loop reads it off the
+        browser window (desktop.py find_text), or off the clipboard if he clicked the page's
+        copy button, and types it into the pseudo-terminal. Claude Code's own status confirms.
+        """
+        helper = self.cfg.get("helper_name") or "la persona que te ayuda"
+        if self.dry_run:
+            self.say("(simulado) inicio de sesión")
+            return
+        if auth.status(self.cfg["claude_bin"], use_credentials=False).get("loggedIn"):
+            if auth.retire_token():
+                self.agent.shutdown()
+            self.say("Ya tienes la sesión iniciada en Claude Code.")
+            return
+        exe = shutil.which(self.cfg["claude_bin"]) or self.cfg["claude_bin"]
+        term = login.TerminalProcess([exe, "auth", "login", "--claudeai"])
+        if not term.start():
+            self.log("LOGIN", f"no pude abrir la terminal: {term.error}")
+            self.say(f"No pude empezar el inicio de sesión. Hace falta {helper}.")
+            return
+        how = ("Cuando veas el botón Autorizar, di 'números' y luego su número. Del resto me encargo yo."
+               if self.desktop_enabled else
+               f"Hace falta que {helper} pulse Autorizar y copie el código, porque el módulo computadora no está activado.")
+        self.say(f"{reason}Abro el navegador para iniciar sesión en Claude. {how} "
+                 f"Si la página pide contraseña, hace falta {helper}. Di 'cancela' para dejarlo.")
+        self.log("SISTEMA", "inicio de sesión por voz")
+        deadline = time.monotonic() + 420
+        next_status, next_scan, url_opened, code_sent, seen_len = 0.0, 0.0, False, False, 0
+        try:
+            while time.monotonic() < deadline:
+                now = time.monotonic()
+                out = term.snapshot()
+                if len(out) > seen_len:
+                    self.log("LOGIN", out[seen_len:].strip()[-500:])
+                    seen_len = len(out)
+                if now >= next_status:
+                    if auth.status(self.cfg["claude_bin"], use_credentials=False).get("loggedIn"):
+                        if auth.retire_token():
+                            self.log("SISTEMA", "token antiguo retirado de credentials.env")
+                        self.agent.shutdown()   # new processes pick up the new sign-in
+                        self.say("Sesión iniciada. Ya puedo trabajar.")
+                        return
+                    next_status = now + 3
+                if not term.alive():
+                    self.say(f"Claude Code cerró el inicio de sesión sin terminarlo. Hace falta {helper}.")
+                    return
+                if not code_sent and now >= next_scan:
+                    code = self.find_login_code()
+                    if code:
+                        term.send_line(code)
+                        code_sent = True
+                        self.log("LOGIN", "código enviado a la terminal")
+                        self.say("Tengo el código. Un momento.")
+                    next_scan = now + 2.5
+                ev = self.button.wait(0.5)
+                if ev is None:
+                    continue
+                if ev == (TALK, LONG) or (self.two_buttons and ev == (NO, SHORT)):
+                    self.say("Cancelado.")
+                    return
+                if ev != (TALK, SHORT):
+                    continue
+                heard = self.record_and_transcribe()
+                if heard is None:
+                    continue
+                if commands.normalize(heard) in {commands.normalize(w) for w in self.cfg["cancel_words"]}:
+                    self.say("Cancelado.")
+                    return
+                code = login.extract_code(heard)
+                act = desktop_commands.parse(heard) if self.desktop_enabled else None
+                if code:
+                    term.send_line(code); code_sent = True
+                elif act:
+                    self.desktop_act(act)
+                elif commands.normalize(heard) in ("abre la pagina", "abre el enlace", "abre el navegador") and login.extract_url(out):
+                    import webbrowser
+                    webbrowser.open(login.extract_url(out)); url_opened = True
+                else:
+                    self.say(how)
+            self.say(f"No se completó el inicio de sesión. Hace falta {helper}.")
+        finally:
+            term.kill()
+
+    def find_login_code(self) -> str | None:
+        """The authorisation code, from the browser window's accessibility tree or the clipboard."""
+        code = login.extract_code(login.read_clipboard())
+        if code:
+            return code
+        if self.desktop_enabled:
+            found = self.desktop("find_text", login.CODE_RE.pattern)
+            if isinstance(found, list):
+                for t in found:
+                    code = login.extract_code(str(t))
+                    if code:
+                        return code
+        return None
+
     def handle_update_claude(self) -> None:
         """Upgrade Claude Code itself with its own `claude update`, after a yes."""
         if not self.confirm("Voy a buscar una versión nueva de Claude Code e instalarla si la hay."):
@@ -687,10 +788,14 @@ class Loop:
 
     def deliver(self, conv: conversations.Conversation) -> None:
         """Speak the finished turns of a conversation, oldest first."""
+        lapsed = False
         for reply in conv.take_replies():
             self.last_reply = reply
             print(f"\n{reply}\n", flush=True)
             self.say(reply, clean=True)
+            lapsed = lapsed or reply.startswith("Claude Code no tiene la sesión iniciada")
+        if lapsed and not self.dry_run:
+            self.handle_login()
 
     def wait_for(self, conv: conversations.Conversation) -> None:
         """Stay with a working conversation: button 2 cancels it, button 1 lets him speak.
@@ -754,7 +859,7 @@ class Loop:
             st = auth.status(self.cfg["claude_bin"])
             self.log("SISTEMA", f"auth: {st}")
             if not st.get("loggedIn"):
-                self.say(auth.login_message(self.cfg.get("helper_name") or "la persona que te ayuda"))
+                self.handle_login("Claude Code no tiene la sesión iniciada. ")
         try:
             while True:
                 try:
@@ -771,6 +876,8 @@ class Loop:
                     self.handle_update()
                 elif cmd.kind == commands.UPDATE_CLAUDE:
                     self.handle_update_claude()
+                elif cmd.kind == commands.LOGIN:
+                    self.handle_login()
                 elif cmd.kind == commands.UNDO:
                     self.handle_undo()
                 elif cmd.kind == commands.REPEAT:

@@ -12,6 +12,13 @@ denied read access to local/, and this file never enters the repo.
 
 `status()` asks Claude Code itself whether it is signed in, so the loop can
 say so plainly at startup instead of failing on the first task.
+
+When the sign-in lapses anyway, the user says "inicia sesión" (or the loop starts
+it by itself): login.py runs `claude auth login` in a pseudo-terminal, the user
+clicks "Autorizar" through the numbered overlay of the computadora module, the
+code on the resulting page is read off the screen and fed back, and the loop
+polls `status()` without the stored token (a stale token would hide a fresh
+login) and then retires that token with `retire_token()`.
 """
 
 from __future__ import annotations
@@ -61,12 +68,15 @@ def subprocess_env(base: dict[str, str] | None = None) -> dict[str, str]:
     return env
 
 
-def status(claude_bin: str = "claude") -> dict:
-    """Return Claude Code's own view: {"loggedIn": bool, "authMethod": str, ...}. Never raises."""
+def status(claude_bin: str = "claude", use_credentials: bool = True) -> dict:
+    """Return Claude Code's own view: {"loggedIn": bool, "authMethod": str, ...}. Never raises.
+
+    use_credentials=False asks about the browser login alone, ignoring local/credentials.env.
+    """
     exe = shutil.which(claude_bin) or claude_bin
     try:
         proc = subprocess.run([exe, "auth", "status", "--json"], capture_output=True, text=True,
-                              timeout=30, env=subprocess_env())
+                              timeout=30, env=subprocess_env() if use_credentials else dict(os.environ))
         data = json.loads(proc.stdout or "{}")
         if isinstance(data, dict):
             return data
@@ -88,4 +98,36 @@ def version(claude_bin: str = "claude") -> str:
 
 def login_message(helper: str) -> str:
     return (f"Claude Code no tiene la sesión iniciada, así que no puedo hacer tareas. "
-            f"Hay que avisar a {helper} para que la arregle. Mientras tanto sigo escuchando.")
+            f"Di 'inicia sesión' y te ayudo a entrar desde el navegador. "
+            f"Si no funciona, hay que avisar a {helper}. Mientras tanto sigo escuchando.")
+
+
+URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+
+
+def login_url(text: str) -> str | None:
+    """The sign-in URL in a line of `claude auth login` output, if any."""
+    m = URL_RE.search(text or "")
+    return m.group(0).rstrip(".,)") if m else None
+
+
+def retire_token(path=None) -> bool:
+    """Comment out CLAUDE_CODE_OAUTH_TOKEN in credentials.env after a fresh browser login, so the
+    stale token stops overriding it. Returns True when a line was changed."""
+    path = CREDENTIALS_FILE if path is None else path
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    out, changed = [], False
+    for line in text.splitlines():
+        stripped = line.strip()
+        key = stripped.removeprefix("export ").partition("=")[0].strip()
+        if key == "CLAUDE_CODE_OAUTH_TOKEN" and not stripped.startswith("#") and stripped.partition("=")[2].strip():
+            out.append("# retirado tras iniciar sesión en el navegador: " + line)
+            changed = True
+        else:
+            out.append(line)
+    if changed:
+        path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    return changed

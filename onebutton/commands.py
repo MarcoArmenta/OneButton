@@ -11,9 +11,11 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-UPDATE, UPDATE_CLAUDE, UNDO, REPEAT, SETUP, CONFIRM, CANCEL, TEXT, EMPTY = (
-    "update", "update_claude", "undo", "repeat", "setup", "confirm", "cancel", "text", "empty",
+UPDATE, UPDATE_CLAUDE, LOGIN, UNDO, REPEAT, SETUP, CONFIRM, CANCEL, TEXT, EMPTY = (
+    "update", "update_claude", "login", "undo", "repeat", "setup", "confirm", "cancel", "text", "empty",
 )
+LOGIN_WORDS = ["inicia sesion", "iniciar sesion", "inicia la sesion", "entra en claude", "conectate a claude",
+               "login", "vuelve a entrar", "inicia sesion en claude"]
 SETUP_WORDS = ["configura los botones", "configurar botones", "configura el equipo", "configuracion"]
 UPDATE_CLAUDE_WORDS = ["actualiza claude", "actualizar claude", "actualiza claude code", "actualiza a claude",
                        "actualiza el claude", "mejora claude"]
@@ -64,6 +66,8 @@ def classify(transcript: str, cfg: dict, awaiting_confirmation: bool = False) ->
         return Command(UPDATE_CLAUDE)   # before UPDATE: "actualiza claude" contains "actualiza"
     if _matches(t, cfg["update_words"]):
         return Command(UPDATE)
+    if _matches(t, cfg.get("login_words") or LOGIN_WORDS):
+        return Command(LOGIN)
     if _matches(t, cfg["undo_words"]):
         return Command(UNDO)
     if _matches(t, cfg["repeat_words"]):

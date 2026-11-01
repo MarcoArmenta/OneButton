@@ -25,6 +25,12 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(C.classify("actualiza", self.cfg).kind, C.UPDATE)
         self.assertEqual(C.classify("dile a claude que actualiza el documento de ayer", self.cfg).kind, C.TEXT)
 
+    def test_login(self):
+        for s in ["inicia sesión", "Iniciar sesión.", "entra en Claude", "login"]:
+            with self.subTest(s=s):
+                self.assertEqual(C.classify(s, self.cfg).kind, C.LOGIN, s)
+        self.assertEqual(C.classify("explícame cómo inicia sesión un usuario en una página web", self.cfg).kind, C.TEXT)
+
     def test_update_inside_long_sentence_is_text(self):
         s = "escribe un correo a Juan diciendo que actualiza el documento mañana"
         self.assertEqual(C.classify(s, self.cfg).kind, C.TEXT)

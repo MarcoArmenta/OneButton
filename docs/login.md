@@ -26,6 +26,43 @@ Code call. The browser login is no longer involved. Anthropic sets the
 token's lifetime; expect to repeat this roughly yearly, and the spoken message
 will say so when the time comes.
 
+## Signing in again by voice: "inicia sesión"
+
+When Claude Code reports that it is not signed in, at startup or in the middle
+of the day, the loop says so and starts the login by itself; "inicia sesión"
+starts it on demand. The flow, with no keyboard anywhere:
+
+1. `claude auth login --claudeai` runs in a pseudo-terminal (`pty` on macOS and
+   Linux, pywinpty on Windows), because the command only talks to a real
+   terminal. It opens the claude.ai authorisation page in the default browser.
+2. If that browser is still signed in to claude.ai, the page is one button:
+   "Autorizar". The user says "números" and then the number on that button
+   (`computadora` module, on by default).
+3. The browser lands on a claude.com page that shows a code, and the CLI waits
+   for it ("Paste code here if prompted"). The loop reads the code off the
+   browser window's accessibility tree (`desktop.py find_text`) or off the
+   clipboard if he clicked the page's copy button by number, and types it into
+   the pseudo-terminal.
+4. The loop polls Claude Code's own `auth status` and says "Sesión iniciada"
+   when it flips. Seven minutes without success, or "cancela", ends the attempt
+   and names the helper.
+
+Anything that asks for a password or a second factor still needs a person,
+unless he chooses to dictate them with "escribe ..." himself. Keep the default
+browser signed in to claude.ai on the account Claude Code uses.
+
+Two details make the hand-over safe:
+
+- The check and the login run without the token from `credentials.env`, since
+  a stale token would otherwise hide the fresh browser login.
+- On success, a `CLAUDE_CODE_OAUTH_TOKEN` line in `credentials.env` is
+  commented out ("retirado tras iniciar sesión en el navegador") so the new
+  login is the one every later turn uses. Running conversations are restarted
+  with the new sign-in; nothing is lost, they resume by session id.
+
+Keep the default browser signed in to claude.ai, on the account Claude Code
+uses, and this moment stays a thirty-second affair.
+
 ## Alternative: an API key
 
 A key from <https://console.anthropic.com> never expires unless revoked.

@@ -102,6 +102,11 @@ and yes is the spoken word "adelante".
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
   for a yes before installing. Anything else cancels.
 - **"Deshacer"** goes back to the previous version, after the same confirmation.
+- **"Inicia sesión"** signs Claude Code in again with no keyboard: the loop runs
+  the login in a pseudo-terminal, he clicks "Autorizar" by number, and the code
+  the page shows is read off the browser window and fed back to Claude Code.
+  It starts by itself whenever Claude Code reports it is signed out. See
+  [docs/login.md](docs/login.md).
 - **"Actualiza Claude"** upgrades Claude Code itself with its own `claude update`,
   after a yes, and says which version it went from and to.
 - Before anything irreversible (sending, deleting, paying) the assistant says
@@ -154,8 +159,8 @@ the default browser opens a tab.
 ## Modules
 
 Optional features, each in `modules/<name>/` with its own `CLAUDE.md` that
-extends the base rules. `maths-screen` and `scribe` are on by default; add
-`computadora` under `modules:` in `local/config.yaml` to turn it on.
+extends the base rules. All three shipped modules are on by default; remove one
+from `modules:` in `local/config.yaml` to turn it off.
 
 - `maths-screen/` **(shipped)**: a blackboard in the browser. The assistant
   writes Markdown with LaTeX to a file; the page re-renders it live in large
