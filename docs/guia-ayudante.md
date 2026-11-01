@@ -104,8 +104,10 @@ pulsado un segundo y medio.
 Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
 "adelante". Enséñale los gestos con calma; el de cancelar da tranquilidad.
 
-Puede tener varias conversaciones con Claude a la vez. Si una tarea tarda,
-dice "nueva conversación" y pregunta otra cosa; "conversación uno" vuelve a la
+Mientras Claude trabaja, puede pulsar el botón y hablarle: lo que diga se le
+pasa en cuanto termine el paso en curso ("Anotado"), igual que escribir en la
+terminal mientras Claude trabaja. También puede tener varias conversaciones a
+la vez. Si una tarea tarda, dice "nueva conversación" y pregunta otra cosa; "conversación uno" vuelve a la
 primera, "qué conversaciones hay" las enumera y "cierra esta conversación"
 cierra la actual. Cuando una termina en segundo plano, OneButton lo avisa una
 vez y lee la respuesta al volver a ella.

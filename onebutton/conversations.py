@@ -10,13 +10,15 @@ the spoken summaries. The loop does the speaking and the threads.
 from __future__ import annotations
 
 import re
+import threading
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 
 from .commands import normalize
 
 NEW, SWITCH, CLOSE, LIST = "new", "switch", "close", "list"
-IDLE, WORKING, DONE = "idle", "working", "done"  # done = finished while another one was current
+IDLE, WORKING, DONE = "idle", "working", "done"  # done = has replies nobody has heard yet
 
 NUMBERS = {"uno": 1, "una": 1, "primera": 1, "dos": 2, "segunda": 2, "tres": 3, "tercera": 3, "cuatro": 4,
            "cuarta": 4, "cinco": 5, "quinta": 5, "seis": 6, "sexta": 6, "siete": 7, "septima": 7, "ocho": 8,
@@ -59,15 +61,32 @@ def spoken(n: int) -> str:
 class Conversation:
     n: int
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    started: bool = False          # first turn done: later turns use --resume
     title: str = ""                # the first thing the user said, for the summary
     state: str = IDLE
     last_reply: str = ""
     announced: bool = True         # a background finish is announced once
+    replies: deque = field(default_factory=deque)   # finished turns nobody has heard yet
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
     def file(self) -> str:
         return f"conversaciones/{self.n}.md"
+
+    def add_reply(self, text: str) -> None:
+        """Called from the agent's reader thread when a turn finishes."""
+        with self.lock:
+            self.replies.append(text)
+            self.last_reply = text
+            self.state = DONE
+            self.announced = False
+
+    def take_replies(self) -> list[str]:
+        with self.lock:
+            out = list(self.replies)
+            self.replies.clear()
+            self.state = IDLE
+            self.announced = True
+            return out
 
 
 class Registry:
@@ -111,7 +130,7 @@ class Registry:
         return [c for c in self.items if c.state == WORKING]
 
     def unannounced(self) -> list[Conversation]:
-        return [c for c in self.items if c.state == DONE and not c.announced]
+        return [c for c in self.items if c.replies and not c.announced]
 
     def summary(self) -> str:
         if len(self.items) == 1:

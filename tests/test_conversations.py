@@ -65,8 +65,11 @@ class RegistryTests(unittest.TestCase):
         self.assertIn("La dos, está libre.", s)
         self.assertIn("Estás en la dos.", s)
         self.assertEqual(r.working(), [r.items[0]])
-        r.items[0].state, r.items[0].announced = cv.DONE, False
+        r.items[0].add_reply("listo")
+        self.assertEqual(r.items[0].state, cv.DONE)
         self.assertEqual(r.unannounced(), [r.items[0]])
+        self.assertEqual(r.items[0].take_replies(), ["listo"])
+        self.assertEqual(r.items[0].state, cv.IDLE); self.assertEqual(r.unannounced(), [])
         self.assertEqual(cv.short_title("uno dos tres cuatro cinco seis siete"), "uno dos tres cuatro cinco seis...")
         self.assertEqual(cv.spoken(2), "dos"); self.assertEqual(cv.spoken(12), "12")
 

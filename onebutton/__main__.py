@@ -596,10 +596,14 @@ class Loop:
 
     # ---- several conversations ---------------------------------------------
     def announce_finished(self) -> None:
-        """Say once that a background conversation finished; the reply waits until he switches to it."""
+        """A finished turn of the current conversation is spoken; one of another conversation is
+        announced once, and its reply waits until he switches to it."""
         for c in self.convs.unannounced():
-            c.announced = True
-            self.say(f"Terminó la conversación {conversations.spoken(c.n)}. Di 'conversación {conversations.spoken(c.n)}' para oírla.")
+            if c is self.convs.current:
+                self.deliver(c)
+            else:
+                c.announced = True
+                self.say(f"Terminó la conversación {conversations.spoken(c.n)}. Di 'conversación {conversations.spoken(c.n)}' para oírla.")
 
     def handle_conversation(self, cmd: dict) -> None:
         kind, n = cmd["kind"], cmd.get("n")
@@ -617,10 +621,9 @@ class Loop:
             self.show_conversation(c)
             self.last_reply = c.last_reply
             self.log("SISTEMA", f"conversación {c.n}")
-            if c.state == conversations.DONE:
-                c.state, c.announced = conversations.IDLE, True
+            if c.replies:
                 self.say(f"Conversación {conversations.spoken(c.n)}. Terminó.")
-                self.say(c.last_reply, clean=True)
+                self.deliver(c)
             elif c.state == conversations.WORKING:
                 self.say(f"Conversación {conversations.spoken(c.n)}. Sigue trabajando; te aviso cuando termine.")
             else:
@@ -630,8 +633,8 @@ class Loop:
             if not c:
                 self.say(f"No hay conversación {conversations.spoken(n)}.")
                 return
-            if c.state == conversations.WORKING and self.agent:
-                self.agent.cancel(c.session_id)
+            if self.agent:
+                self.agent.close(c.session_id)
             self.convs.close(c.n)
             self.show_conversation(self.convs.current)
             self.last_reply = self.convs.current.last_reply
@@ -657,45 +660,37 @@ class Loop:
 
     def handle_claude(self, text: str) -> None:
         conv = self.convs.current
-        if conv.state == conversations.WORKING:
-            self.say(f"La conversación {conversations.spoken(conv.n)} sigue trabajando. "
-                     "Di 'nueva conversación' para hablar de otra cosa mientras tanto, o espera a que termine.")
-            return
         if not conv.title:
             conv.title = conversations.short_title(text)
         self.converse("Tú", text, conv)
         if self.dry_run:
-            self.deliver(conv, f"(simulado) Recibí: {text}")
+            conv.add_reply(f"(simulado) Recibí: {text}")
+            self.deliver(conv)
             return
-        conv.state = conversations.WORKING
-        conv.announced = True
-        self.ask_in_background(conv, text)
+        if conv.state == conversations.WORKING:
+            self.say("Anotado. Se lo paso en cuanto pueda.")   # Claude Code queues it into the running turn
+        self.send(conv, text)
         self.wait_for(conv)
 
-    def ask_in_background(self, conv: conversations.Conversation, text: str) -> None:
-        """Run the Claude turn in a thread of its own; the conversation records the reply when done."""
+    def send(self, conv: conversations.Conversation, text: str) -> None:
+        """Hand a message to the conversation's Claude Code process; replies come back through add_reply."""
         print(f"🤖 Pensando... (conversación {conv.n})", flush=True)
+        conv.state = conversations.WORKING
+        conv.announced = True
 
-        def work():
-            reply = self.agent.ask(text, conv.session_id, resume=conv.started)
-            conv.started = True
-            conv.last_reply = reply
+        def on_reply(reply: str, conv=conv):
             self.log("BOT", f"[{conv.n}] {reply}")
             self.converse("Asistente", reply, conv)
-            conv.state = conversations.DONE   # wait_for() or a later switch speaks it
+            conv.add_reply(reply)
 
-        threading.Thread(target=work, daemon=True).start()
+        self.agent.send(conv.session_id, text, on_reply)
 
-    def deliver(self, conv: conversations.Conversation, reply: str | None = None) -> None:
-        """Speak a finished reply of the current conversation."""
-        if reply is not None:
-            conv.last_reply = reply
-            self.log("BOT", f"[{conv.n}] {reply}")
-            self.converse("Asistente", reply, conv)
-        conv.state, conv.announced = conversations.IDLE, True
-        self.last_reply = conv.last_reply
-        print(f"\n{conv.last_reply}\n", flush=True)
-        self.say(conv.last_reply, clean=True)
+    def deliver(self, conv: conversations.Conversation) -> None:
+        """Speak the finished turns of a conversation, oldest first."""
+        for reply in conv.take_replies():
+            self.last_reply = reply
+            print(f"\n{reply}\n", flush=True)
+            self.say(reply, clean=True)
 
     def wait_for(self, conv: conversations.Conversation) -> None:
         """Stay with a working conversation: button 2 cancels it, button 1 lets him speak.
@@ -709,11 +704,7 @@ class Loop:
             act = self.action(THINKING, 0.2)
             if act == A_CANCEL:
                 self.agent.cancel(conv.session_id)
-                for _ in range(50):
-                    if conv.state != conversations.WORKING:
-                        break
-                    time.sleep(0.1)
-                conv.state, conv.announced = conversations.IDLE, True
+                conv.take_replies()
                 self.say("Cancelado.")
                 return
             if act == A_REASSURE:
@@ -729,13 +720,17 @@ class Loop:
                     continue
                 if commands.normalize(heard) in {commands.normalize(w) for w in self.cfg["cancel_words"]}:
                     self.agent.cancel(conv.session_id)
-                    continue
-                self.say(f"La conversación {conversations.spoken(conv.n)} sigue trabajando. "
-                         "Di 'nueva conversación' para hablar de otra cosa mientras tanto, o espera.")
+                    conv.take_replies()
+                    self.say("Cancelado.")
+                    return
+                # anything else is for this conversation: Claude Code queues it into the running turn
+                self.converse("Tú", heard, conv)
+                self.send(conv, heard)
+                self.say("Anotado.")
             elif self.progress_interval > 0 and time.monotonic() >= next_progress:
                 self.speaker.say("Sigo en ello.", show=False)
                 next_progress = time.monotonic() + 2 * self.progress_interval
-        if conv.state == conversations.DONE:
+        if conv.replies:
             self.deliver(conv)
 
     # ---- main ------------------------------------------------------------
@@ -788,6 +783,8 @@ class Loop:
                 else:
                     self.handle_text(cmd.text)
         finally:
+            if self.agent:
+                self.agent.shutdown()
             for proc in self.modules:
                 proc.terminate()
 

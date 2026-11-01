@@ -53,6 +53,7 @@ DEFAULTS = {
     "claude_bin": "claude",
     "permission_mode": "acceptEdits",
     "claude_timeout": 600,
+    "claude_idle_close": 900,
     "max_turns": 30,
     "repo_url": "https://github.com/MarcoArmenta/OneButton.git",
 }

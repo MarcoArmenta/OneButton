@@ -39,20 +39,32 @@ class FakeButton:
 
 
 class FakeAgent:
-    """ask() blocks until release() is called; records which session each turn used."""
+    """send() answers from a thread once release() is called; records every message per session."""
     def __init__(self):
         self.gate = threading.Event()
         self.calls = []
         self.cancelled = []
+        self.closed = []
 
-    def ask(self, text, session_id=None, resume=False):
-        self.calls.append((text, session_id, resume))
-        self.gate.wait(5)
-        return f"respuesta a {text}"
+    def send(self, session_id, text, on_reply, priority="next"):
+        self.calls.append((text, session_id, priority))
+
+        def answer():
+            if self.gate.wait(5) and session_id not in self.cancelled:
+                on_reply(f"respuesta a {text}")
+        threading.Thread(target=answer, daemon=True).start()
+
+    def working(self, session_id):
+        return any(sid == session_id for _, sid, _ in self.calls) and not self.gate.is_set()
 
     def cancel(self, session_id=None):
         self.cancelled.append(session_id)
-        self.gate.set()
+
+    def close(self, session_id):
+        self.closed.append(session_id)
+
+    def shutdown(self):
+        pass
 
 
 def make_loop(ws: Path, button_events, heard):
@@ -97,7 +109,6 @@ class LoopConversationTests(unittest.TestCase):
         self.assertEqual(c1.title, "escribe la demostración completa")
         self.assertTrue(any("Conversación dos. Te escucho." in s for s in lp.speaker.said))
         self.assertEqual(lp.agent.calls[0][1], c1.session_id)
-        self.assertFalse(lp.agent.calls[0][2], "first turn of a conversation starts the session")
         self.assertEqual(lp.conversation.read_text(encoding="utf-8"), "", "the screen shows the new, empty conversation")
 
         # the second conversation gets its own session and answers right away
@@ -120,15 +131,34 @@ class LoopConversationTests(unittest.TestCase):
         self.assertIn("respuesta a escribe", lp.conversation.read_text(encoding="utf-8"))
         self.assertNotIn("qué hora es", lp.conversation.read_text(encoding="utf-8"))
 
-        # a later turn in conversation one resumes its session
+        # a later turn in conversation one goes to the same session
         lp.handle_text("sigue")
-        self.assertEqual(lp.agent.calls[-1][1:], (c1.session_id, True))
+        time.sleep(0.2)
+        self.assertEqual(lp.agent.calls[-1][1], c1.session_id)
+        self.assertIn("respuesta a sigue", lp.speaker.said[-1])
 
-    def test_talking_while_it_works_without_a_command_is_explained(self):
+    def test_talking_while_it_works_queues_the_message_into_the_same_conversation(self):
         lp = make_loop(self.ws, [(TALK, SHORT), (TALK, SHORT)], ["y también suma dos más dos", "cancela"])
         lp.handle_text("tarea larga")
-        self.assertTrue(any("sigue trabajando" in s for s in lp.speaker.said))
-        self.assertEqual(lp.agent.cancelled, [lp.convs.current.session_id], "'cancela' stops this conversation only")
+        c1 = lp.convs.current
+        self.assertEqual([c[0] for c in lp.agent.calls], ["tarea larga", "y también suma dos más dos"])
+        self.assertEqual({c[1] for c in lp.agent.calls}, {c1.session_id}, "the extra message goes to the running conversation")
+        self.assertIn("Anotado.", lp.speaker.said)
+        self.assertEqual(lp.agent.cancelled, [c1.session_id], "'cancela' stops this conversation only")
+        self.assertEqual(lp.speaker.said[-1], "Cancelado.")
+        self.assertEqual(c1.state, cv.IDLE)
+        self.assertIn("y también suma dos más dos", (self.ws / c1.file).read_text(encoding="utf-8"))
+
+    def test_finished_turn_of_the_current_conversation_is_spoken_when_idle(self):
+        lp = make_loop(self.ws, [(TALK, SHORT)], ["nueva conversación"])
+        lp.handle_text("tarea larga")          # leaves conversation 1 working, now in conversation 2
+        lp.handle_text("conversación uno")     # back to it while it still works
+        self.assertTrue(any("Sigue trabajando" in s for s in lp.speaker.said))
+        lp.agent.gate.set()
+        time.sleep(0.2)
+        lp.announce_finished()
+        self.assertEqual(lp.speaker.said[-1], "respuesta a tarea larga", "spoken directly, no 'di conversación uno'")
+        self.assertEqual(lp.convs.current.state, cv.IDLE)
 
     def test_list_close_and_unknown(self):
         lp = make_loop(self.ws, [], [])
@@ -139,6 +169,7 @@ class LoopConversationTests(unittest.TestCase):
         lp.handle_text("conversación nueve")
         self.assertIn("No hay conversación nueve", lp.speaker.said[-1])
         lp.handle_text("cierra esta conversación")
+        self.assertEqual(len(lp.agent.closed), 1, "closing a conversation ends its Claude Code process")
         self.assertEqual([c.n for c in lp.convs.items], [1, 2])
         self.assertIn("Cerrada la conversación tres. Estás en la dos.", lp.speaker.said[-1])
         lp.handle_text("cierra la conversación uno")

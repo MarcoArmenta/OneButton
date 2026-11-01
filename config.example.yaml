@@ -45,6 +45,7 @@ helper_name: ""              # Who to call when something needs a human, e.g. "M
 claude_bin: claude
 permission_mode: acceptEdits # acceptEdits is safe: tools outside the allow list are denied, not prompted.
 claude_timeout: 600          # Seconds before a single turn is abandoned and reported aloud.
+claude_idle_close: 900       # Seconds an idle conversation keeps its Claude Code process; it resumes on the next message.
 max_turns: 30
 
 # The screen: a local page with panels (conversation, maths board, manuscript). Always on.

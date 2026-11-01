@@ -81,14 +81,16 @@ and yes is the spoken word "adelante".
   primed with the words he uses most.
 - During a long task it says "sigo en ello" now and then. A press of button 1
   lets him speak: "nueva conversación" leaves the task running and opens
-  another conversation, "cancela" stops it, anything else gets a reminder that
-  it is still working.
+  another conversation, "cancela" stops it, and anything else is handed to the
+  running conversation ("Anotado"), which Claude Code reads as soon as its
+  current tool calls finish, like typing while Claude works in the terminal.
 - **"Repite"** reads the last reply again.
 - **"Nueva conversación"** opens another Claude Code conversation in the same
   workspace while the current one keeps working; **"conversación dos"**
   switches, **"qué conversaciones hay"** lists them, **"cierra esta
-  conversación"** closes one. Each is its own Claude Code session, so a long
-  task never blocks a quick question. A conversation that finishes in the
+  conversación"** closes one. Each is its own long-lived Claude Code process
+  (stream-json in, stream-json out, resumed by session id after a cancel or an
+  idle close), so a long task never blocks a quick question. A conversation that finishes in the
   background is announced once; switching to it reads the reply.
 - **"Ve a Chrome"**, **"números"**, **"pulsa el siete"**, **"escribe ..."**,
   **"cierra esta ventana"** control any application directly when the
