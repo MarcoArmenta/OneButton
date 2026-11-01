@@ -19,6 +19,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -544,6 +545,38 @@ class Loop:
         self.log("SISTEMA", f"instalada {rel.tag}; reiniciando")
         sys.exit(3)  # bin/onebutton restarts us on the new version
 
+    def handle_update_claude(self) -> None:
+        """Upgrade Claude Code itself with its own `claude update`, after a yes."""
+        if not self.confirm("Voy a buscar una versión nueva de Claude Code e instalarla si la hay."):
+            self.say("Cancelado.")
+            return
+        if self.dry_run:
+            self.say("(simulado) claude update")
+            return
+        before = auth.version(self.cfg["claude_bin"])
+        self.say("Buscando. Puede tardar un minuto.")
+        try:
+            proc = subprocess.run([shutil.which(self.cfg["claude_bin"]) or self.cfg["claude_bin"], "update"],
+                                  capture_output=True, text=True, timeout=600, env=auth.subprocess_env())
+        except FileNotFoundError:
+            self.say("No encuentro Claude Code en esta computadora.")
+            return
+        except subprocess.TimeoutExpired:
+            self.say("La actualización de Claude Code tardó demasiado y la detuve.")
+            return
+        after = auth.version(self.cfg["claude_bin"])
+        out = ((proc.stdout or "") + (proc.stderr or "")).lower()
+        self.log("SISTEMA", f"claude update rc={proc.returncode} {before} -> {after}: {out.strip()[-300:]}")
+        if proc.returncode != 0 and after == before:
+            tail = (proc.stderr or proc.stdout or "sin detalle").strip().splitlines()[-1]
+            self.say(f"No pude actualizar Claude Code: {tail}. Quizá haga falta {self.cfg.get('helper_name') or 'quien te ayuda'}.")
+        elif after and before and after != before:
+            self.say(f"Claude Code actualizado de la versión {before} a la {after}.")
+        elif any(k in out for k in ("already", "up to date", "up-to-date", "latest", "no update")):
+            self.say(f"Claude Code ya está en la última versión, la {after or before}.")
+        else:
+            self.say(f"Listo. Claude Code está en la versión {after or before}.")
+
     def handle_undo(self) -> None:
         prev = updater.read_state().get("previous")
         if not prev:
@@ -741,6 +774,8 @@ class Loop:
                     self.say("No escuché nada. Pulsa el botón y vuelve a intentarlo.")
                 elif cmd.kind == commands.UPDATE:
                     self.handle_update()
+                elif cmd.kind == commands.UPDATE_CLAUDE:
+                    self.handle_update_claude()
                 elif cmd.kind == commands.UNDO:
                     self.handle_undo()
                 elif cmd.kind == commands.REPEAT:

@@ -16,6 +16,8 @@ say so plainly at startup instead of failing on the first task.
 
 from __future__ import annotations
 
+import re
+
 import json
 import os
 import shutil
@@ -71,6 +73,17 @@ def status(claude_bin: str = "claude") -> dict:
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         pass
     return {"loggedIn": False, "error": "no pude consultar el estado"}
+
+
+def version(claude_bin: str = "claude") -> str:
+    """Claude Code's version string such as '2.1.316', or '' when it cannot be read."""
+    try:
+        proc = subprocess.run([shutil.which(claude_bin) or claude_bin, "--version"], capture_output=True,
+                              text=True, timeout=30, env=subprocess_env())
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    m = re.search(r"\d+\.\d+\.\d+", (proc.stdout or "") + (proc.stderr or ""))
+    return m.group(0) if m else ""
 
 
 def login_message(helper: str) -> str:

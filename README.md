@@ -100,6 +100,8 @@ and yes is the spoken word "adelante".
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
   for a yes before installing. Anything else cancels.
 - **"Deshacer"** goes back to the previous version, after the same confirmation.
+- **"Actualiza Claude"** upgrades Claude Code itself with its own `claude update`,
+  after a yes, and says which version it went from and to.
 - Before anything irreversible (sending, deleting, paying) the assistant says
   what it is about to do and asks "¿Adelante?". Only a clear yes proceeds.
 

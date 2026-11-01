@@ -285,6 +285,10 @@ depende del programa de terminal; suele estar en Preferencias.
 - **Se ha quedado colgado.** Cierra la ventana de la terminal y vuelve a
   arrancar (paso 4). OneButton se reinicia solo si se cae, pero no si se
   queda esperando algo.
+- **Claude Code está viejo.** La persona puede decir "actualiza Claude" y
+  confirmar con "adelante"; OneButton ejecuta la actualización de Claude Code
+  y dice a qué versión pasó. Claude Code también se actualiza solo de vez en
+  cuando.
 - **Una actualización rompió algo.** La persona puede decir "deshacer" y
   confirmar con "adelante". Vuelve a la versión anterior.
 

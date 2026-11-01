@@ -18,6 +18,13 @@ class ClassifyTests(unittest.TestCase):
             with self.subTest(s=s):
                 self.assertEqual(C.classify(s, self.cfg).kind, C.UPDATE, s)
 
+    def test_update_claude_is_not_update(self):
+        for s in ["actualiza claude", "Actualiza Claude Code.", "actualizar claude", "por favor actualiza claude"]:
+            with self.subTest(s=s):
+                self.assertEqual(C.classify(s, self.cfg).kind, C.UPDATE_CLAUDE, s)
+        self.assertEqual(C.classify("actualiza", self.cfg).kind, C.UPDATE)
+        self.assertEqual(C.classify("dile a claude que actualiza el documento de ayer", self.cfg).kind, C.TEXT)
+
     def test_update_inside_long_sentence_is_text(self):
         s = "escribe un correo a Juan diciendo que actualiza el documento mañana"
         self.assertEqual(C.classify(s, self.cfg).kind, C.TEXT)
