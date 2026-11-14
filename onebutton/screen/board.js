@@ -90,8 +90,80 @@
     return best;
   }
 
+  // ---- panels and scrolling, by voice ---------------------------------------
+  const PANEL_WORDS = {
+    conversacion: ["conversacion", "charla", "respuesta", "respuestas"],
+    pizarron: ["pizarron", "pizarra", "formulas"],
+    escritorio: ["escritorio", "escrito", "manuscrito", "articulo", "texto"],
+  };
+  const GO = ["ve", "vete", "ir", "vamos", "voy", "cambia", "cambiar", "pasa", "pasar", "abre", "abrir", "muestra",
+    "muestrame", "ensena", "ensename", "pon", "ponme", "ver", "veamos", "mira", "quiero", "llevame", "regresa", "vuelve", "volver"];
+  const LINK = ["a", "al", "el", "la", "en", "de", "del", "panel", "por", "favor"];
+
+  function panelOf(word, panels) {
+    for (const p of panels) if ((PANEL_WORDS[p] || []).indexOf(word) >= 0) return p;
+    return null;
+  }
+
+  // "pizarrón", "ve al pizarrón", "muéstrame la conversación" -> the panel. Any other word makes it a
+  // sentence about the panel ("borra el pizarrón", "nuevo escrito"), which is for Claude: null.
+  function parsePanel(text, panels) {
+    const words = normalize(text).split(" ").filter(Boolean);
+    if (!words.length || words.length > 6) return null;
+    let found = null;
+    for (const w of words) {
+      const p = panelOf(w, panels);
+      if (p) { if (found && found !== p) return null; found = p; }
+      else if (GO.indexOf(w) < 0 && LINK.indexOf(w) < 0) return null;
+    }
+    return found;
+  }
+
+  const SCROLL = {
+    down: ["baja", "bajar", "bajale", "bajando", "abajo"], up: ["sube", "subir", "subele", "subiendo", "arriba"],
+    top: ["principio", "inicio", "comienzo"], bottom: ["final", "fin"],
+    far: ["hasta", "todo"],                                   // "hasta arriba", "abajo del todo"
+    page: ["pagina", "paginas", "pantalla", "pantallas", "vez", "veces"],
+    next: ["siguiente"], prev: ["anterior"],                  // only next to "página"
+    little: ["poco", "poquito"], lot: ["mucho", "bastante"],
+    link: ["a", "al", "el", "la", "en", "de", "del", "un", "una", "y", "mas", "hacia", "para", "por", "favor", "ve", "ir",
+      "sigue", "seguir", "desplaza", "desplazar", "mueve", "panel"],
+  };
+
+  // "baja", "sube un poco", "baja tres", "al principio", "al final del pizarrón" ->
+  // {dir: down|up|top|bottom, steps, panel}. A step is most of a screen. Every word has to belong
+  // to the grammar, so "sube el volumen" or a bare "sigue" (which is for Claude) is not a scroll: null.
+  function parseScroll(text, panels) {
+    const words = normalize(text).split(" ").filter(Boolean);
+    if (!words.length || words.length > 6) return null;
+    const has = {};
+    let panel = null, steps = 1;
+    for (const w of words) {
+      const p = panelOf(w, panels);
+      if (p) { if (panel && panel !== p) return null; panel = p; continue; }
+      if (/^\d{1,2}$/.test(w) || (w in UNITS && w !== "cero")) { has.number = true; continue; }
+      let kind = null;
+      for (const k in SCROLL) if (SCROLL[k].indexOf(w) >= 0) { kind = k; break; }
+      if (!kind) return null;
+      has[kind] = true;
+    }
+    if ((has.down && has.up) || (has.top && has.bottom)) return null;
+    let dir = null;
+    if (has.top || (has.far && has.up)) dir = "top";
+    else if (has.bottom || (has.far && has.down)) dir = "bottom";
+    else if (has.down || (has.page && has.next)) dir = "down";
+    else if (has.up || (has.page && has.prev)) dir = "up";
+    if (!dir) return null;
+    if (dir === "down" || dir === "up") {
+      if (has.number) steps = Math.max(1, Math.min(20, parseNumber(text)));
+      else if (has.little) steps = 0.4;
+      else if (has.lot) steps = 3;
+    }
+    return { dir: dir, steps: steps, panel: panel };
+  }
+
   // ---- formulas in markdown -----------------------------------------------
-  const FORMULA_RE = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
+  const FORMULA_RE =/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
 
   function findFormulas(md) {
     const out = [];
@@ -205,7 +277,8 @@
     return latex.slice(0, span.start) + "{\\color{" + color + "}" + span.src + "}" + latex.slice(span.end);
   }
 
-  return { MENU, leaves, normalize, parseNumber, findItem, findFormulas, hints, applyOp, highlight };
+  return { MENU, leaves, normalize, parseNumber, findItem, findFormulas, hints, applyOp, highlight,
+    PANEL_WORDS, parsePanel, parseScroll };
 });
 
 // ---------------------------------------------------------------------------

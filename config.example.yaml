@@ -27,11 +27,14 @@ update_words: ["actualiza", "actualizar"]
 undo_words: ["deshacer", "deshaz"]
 repeat_words: ["repite", "repítelo"]
 
-# Speech output.
-tts: auto                    # auto, say (macOS), espeak, pyttsx3, none
-tts_voice: ""                # Leave empty for the system default. On macOS try "Paulina" or "Jorge".
+# Speech output. The voice is always one that speaks `language`. auto: a voice of that language
+# installed on the system; if there is none, the offline Piper voice (downloaded once into
+# local/voices). `onebutton --voices` shows what will speak.
+tts: auto                    # auto, piper, winrt or sapi (Windows), say (macOS), espeak, pyttsx3, none
+tts_voice: ""                # Part of a system voice's name to prefer, e.g. "Sabina", "Raul", "Paulina". Empty: the best one of the language.
 tts_rate: 170
-piper_model: ""              # Path to a Piper .onnx voice (good offline Spanish on Linux). Used when tts is piper or auto.
+piper_voice: ""              # A Piper voice by name instead of the default for the language (es: es_MX-claude-high), e.g. es_MX-ald-medium.
+piper_model: ""              # Or the path to a Piper .onnx file you already have.
 progress_interval: 45        # Seconds before saying "sigo en ello" during a long task. 0 disables.
 log_transcripts: true        # Append what was said and answered to local/session.log (never leaves the machine).
 

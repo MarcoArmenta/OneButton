@@ -14,9 +14,9 @@ with the two buttons. Two layers:
 | "pulsa el siete" | clicks number 7 (with or without the overlay shown first) |
 | "rejilla" | a 3×3 grid over the screen; say a cell to zoom, three times to click anywhere |
 | "clic derecho", "doble clic" | at the pointer |
-| "escribe hola Juan" | types into the focused app |
+| "escribe hola Juan" | types into the focused app. With the OneButton page in front, or when it names the pizarrón or the manuscript, it is a request to Claude instead |
 | "intro", "escape", "copiar", "pegar", "control s", "alt tab" | keys |
-| "baja", "sube diez" | scrolls |
+| "baja", "sube diez" | scrolls the window in front (the pointer is put on it first). With the OneButton page in front, they scroll its panel |
 | "sube el volumen", "silencio" | volume |
 | "apaga la computadora", "reinicia", "suspende", "bloquea" | power, after a yes |
 | "qué hay en pantalla" | Claude describes the screen |

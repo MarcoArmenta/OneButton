@@ -7,8 +7,10 @@ otra para actuar; úsalas en bucle hasta terminar.
 
 ## Herramienta
 
-`python modules/computadora/desktop.py <orden>` (desde la raíz del
-repositorio, un nivel por encima del espacio de trabajo). Devuelve JSON.
+`python ../modules/computadora/desktop.py <orden>`, tal cual, desde el espacio
+de trabajo (el código vive un nivel por encima; no cambies de carpeta con
+`cd`). Devuelve JSON. No instales nada para usarla: si responde con un error
+de que falta una biblioteca, dilo y para.
 
 - `screenshot` → `{"path", "width", "height"}`. Lee ese PNG con la herramienta
   de lectura de archivos para ver la pantalla. Las coordenadas que veas son
@@ -16,7 +18,8 @@ repositorio, un nivel por encima del espacio de trabajo). Devuelve JSON.
 - `elements` → controles pulsables de la ventana activa, con nombre, tipo y
   centro `x, y`. Más fiable que adivinar coordenadas: úsalo primero.
 - `windows`, `focus <nombre>`, `open <nombre>`, `minimize`, `maximize`.
-- `click <x> <y> [left|right|double]`, `move <x> <y>`, `scroll <up|down> [n]`.
+- `click <x> <y> [left|right|double]`, `move <x> <y>`, `scroll <up|down> [n]`
+  (desplaza la ventana que está al frente).
 - `key <combo>` (`enter`, `esc`, `ctrl+s`, `alt+f4`, `win+d`), `type <texto>`.
 - `volume <up|down|mute>`, `power <sleep|shutdown|restart>`.
 
@@ -48,6 +51,16 @@ Prefiere atajos de teclado a clics cuando existan: son más fiables.
 ## Lo que hace el ciclo sin ti
 
 Órdenes cortas como "ve a Chrome", "cierra esta ventana", "números", "pulsa
-el siete", "escribe ...", "sube el volumen" o "apaga la computadora" las
-ejecuta OneButton directamente. Te llega lo demás: tareas de varios pasos o
-cualquier cosa que haya que mirar para hacer.
+el siete", "escribe ...", "baja", "sube el volumen" o "apaga la computadora"
+las ejecuta OneButton directamente. Te llega lo demás: tareas de varios pasos
+o cualquier cosa que haya que mirar para hacer. "Escribe ..." te llega a ti
+cuando nombra el pizarrón o el escrito, o cuando la ventana que está al
+frente es la de OneButton: entonces no hay dónde teclear y es un encargo
+para ti.
+
+## Buscar en internet
+
+Para saber algo ("busca en Google ...", "qué dice la Wikipedia de ..."), usa
+tu propia búsqueda web y contesta en voz alta: no hace falta abrir ningún
+navegador. Abre el navegador sólo si el usuario pide ver la página; entonces
+usa `python ../modules/computadora/desktop.py open` o `start <dirección>`.

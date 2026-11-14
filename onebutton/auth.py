@@ -29,6 +29,8 @@ import json
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 from .config import LOCAL_DIR
 
@@ -63,7 +65,17 @@ def credentials_env() -> dict[str, str]:
 
 
 def subprocess_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment Claude Code runs in: the credentials, and this Python first on the PATH.
+
+    Claude runs helpers as `python ...` (modules/computadora/desktop.py, the user's own scripts).
+    The first `python` on a Windows PATH is often the Microsoft Store stub or an interpreter
+    without OneButton's libraries; this one has them.
+    """
     env = dict(os.environ if base is None else base)
+    here = str(Path(sys.executable).parent)
+    parts = [p for p in env.get("PATH", "").split(os.pathsep) if p]
+    if not parts or parts[0] != here:
+        env["PATH"] = os.pathsep.join([here] + [p for p in parts if p != here])
     env.update(credentials_env())
     return env
 

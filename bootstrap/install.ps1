@@ -91,6 +91,10 @@ foreach ($dir in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFo
   $lnk.Save()
 }
 
+Say "Comprobando la voz (si Windows no tiene una voz en el idioma configurado, se descarga una; sólo la primera vez)"
+& $Py -m onebutton --voices
+if ($LASTEXITCODE -ne 0) { Write-Host "AVISO: no hay ninguna voz para el idioma configurado, así que sonará con el acento de otro idioma. Ver docs\guia-ayudante.md, 'Si algo falla'." -ForegroundColor Yellow }
+
 Say "Prueba de voz"
 & $Py -c "from onebutton.config import load; from onebutton.tts import Speaker; Speaker(load()).say('OneButton instalado correctamente.')"
 

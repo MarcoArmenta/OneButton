@@ -18,6 +18,15 @@ class ParseTests(unittest.TestCase):
         self.assertIsNone(parse("ve a la pizarra"))
         self.assertIsNone(parse("muestra el escritorio"))
 
+    def test_anything_about_a_panel_goes_to_claude(self):
+        # "escribe ..." types into the focused application; said about the pizarrón it is a request to Claude
+        self.assertIsNone(parse("escribe en el pizarrón x al cuadrado más uno"))
+        self.assertIsNone(parse("escribe la integral de x al cuadrado en el pizarrón"))
+        self.assertIsNone(parse("dicta en el pizarrón el teorema de Pitágoras"))
+        self.assertIsNone(parse("muestra en el pizarrón la serie geométrica"))
+        self.assertIsNone(parse("escribe en el manuscrito que mañana seguimos"))
+        self.assertIsNone(parse("abre el escrito de la tesis"))
+
     def test_numbers_and_clicks(self):
         self.check("muestra los números", {"action": "overlay"})
         self.check("pulsa el siete", {"action": "click_number", "n": 7})

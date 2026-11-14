@@ -38,6 +38,7 @@ DEFAULTS = {
     "tts_voice": "",
     "tts_rate": 170,
     "piper_model": "",
+    "piper_voice": "",
     "progress_interval": 45,
     "log_transcripts": True,
     "modules": [],

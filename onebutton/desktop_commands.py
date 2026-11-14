@@ -134,8 +134,11 @@ def _shot(m): return {"action": "screenshot"}
 @_p(r"(?:que hay en|lee|describe|que dice)(?: la)? pantalla")
 def _describe(m): return {"action": "describe"}
 
-# words that mean the same thing as a verb above but must never be stolen from Claude
-_RESERVED_TARGETS = {"pizarron", "pizarra", "escritorio", "conversacion", "escrito", "manuscrito"}
+# The screen's own panels. Typing, switching and opening are for other applications: an
+# utterance that names a panel ("escribe en el pizarrón ...", "abre el escrito ...") is about
+# OneButton itself and must reach the page or Claude, never the keyboard.
+_PANEL_WORDS = {"pizarron", "pizarra", "escritorio", "conversacion", "escrito", "manuscrito"}
+_APP_ACTIONS = {"type", "focus", "open"}
 
 
 _ARTICLES = re.compile(r"^(?:a |al |a la |a el |la |el |los |las |un |una |mi |el programa |la aplicacion |la app )+")
@@ -152,9 +155,11 @@ def parse(text: str) -> dict | None:
         act = fn(m)
         if act is None:
             continue  # the verb matched but the argument did not; try the next pattern
+        if act["action"] in _APP_ACTIONS and _PANEL_WORDS.intersection(t.split()):
+            return None
         if "target" in act:
             act["target"] = _ARTICLES.sub("", act["target"]).strip()
-            if act["target"] in _RESERVED_TARGETS or not act["target"]:
+            if not act["target"]:
                 return None
         return act
     return None
