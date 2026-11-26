@@ -6,8 +6,15 @@ two big buttons, a microphone, a screen, and Claude Code doing the work.
 Press the button, speak, press again. The words go to Claude Code, which
 writes, computes, reads email, searches, and answers aloud. Everything he
 needs to see is on one local page with panels: the conversation, a maths
-board, the manuscript he is writing. Updates arrive by saying "actualiza";
-mistakes are undone by saying "deshacer".
+board, the manuscript he is writing. Updates arrive by saying "update";
+mistakes are undone by saying "undo".
+
+It speaks English and understands English and Spanish at once: every command
+below works in both ("scroll down" or "baja", "new conversation" or "nueva
+conversación"). Say "habla en español" and it speaks Spanish from then on.
+
+**New user?** Print the one-page quick start:
+[English](docs/quick-start.pdf) · [Español](docs/inicio-rapido.pdf).
 
 Built by Marco Armenta for a friend in Mexico City who lives with very limited
 mobility. Everything here is designed so that the person helping at home never
@@ -73,16 +80,26 @@ hold of about 1.5 seconds.
 With a single button, a hold cancels (or explains the controls when idle),
 and yes is the spoken word "adelante".
 
+- **The buttons belong to OneButton.** Their keys are swallowed before any
+  application sees them, so a press never pages a PDF or submits a form.
+  Moving a page is done by voice: **"scroll down"** / **"baja"** (half a
+  screen), **"scroll down a little"** / **"baja un poco"**, **"scroll down a
+  lot"** / **"baja mucho"**, **"again"** / **"otra vez"** (repeats the last
+  move), **"go up"** / **"ve hacia arriba"**, **"go to the top"** / **"al
+  principio"**, **"go to the end"** / **"al final"**. The wheel turns over the
+  window in front.
+- **"Speak Spanish"** / **"habla en inglés"** changes the language it speaks,
+  now and at every start. It keeps understanding both.
 - Pauses while speaking are fine, up to 90 seconds by default.
 - Tremor is filtered: taps too short to be deliberate, double taps, and a
   hold that loses contact for a moment are all read as what was meant. The
   thresholds are in the config.
 - A soft voice is normalised before recognition, and the recogniser can be
   primed with the words he uses most.
-- During a long task it says "sigo en ello" now and then. A press of button 1
+- During a long task it says "still on it" now and then. A press of button 1
   lets him speak: "nueva conversación" leaves the task running and opens
   another conversation, "cancela" stops it, and anything else is handed to the
-  running conversation ("Anotado"), which Claude Code reads as soon as its
+  running conversation ("Noted"), which Claude Code reads as soon as its
   current tool calls finish, like typing while Claude works in the terminal.
 - **"Repite"** reads the last reply again.
 - **"Nueva conversación"** opens another Claude Code conversation in the same
@@ -96,7 +113,11 @@ and yes is the spoken word "adelante".
   **"cierra esta ventana"** control any application directly when the
   `computadora` module is on. "Qué hay en pantalla" or any multi-step task
   goes to Claude, which looks at the screen and acts.
-- **"Pizarrón"**, **"escritorio"**, **"conversación"** switch panels on the
+- **"Dictation"** / **"nuevo escrito"** opens the writing desk, where his
+  words are written down exactly as he says them; **"review"** / **"revisión"**
+  asks for suggestions, which he accepts or refuses one by one. See Modules.
+- **"Board"**, **"desk"**, **"conversation"** (**"pizarrón"**,
+  **"escritorio"**, **"conversación"**) switch panels on the
   screen. **"Lee"** or **"lee el cinco"** reads the current panel aloud from
   the page, block by block; button 2 skips, a number jumps.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
@@ -110,7 +131,7 @@ and yes is the spoken word "adelante".
 - **"Actualiza Claude"** upgrades Claude Code itself with its own `claude update`,
   after a yes, and says which version it went from and to.
 - Before anything irreversible (sending, deleting, paying) the assistant says
-  what it is about to do and asks "¿Adelante?". Only a clear yes proceeds.
+  what it is about to do and asks "Go ahead?". Only a clear yes proceeds.
 
 ## Safety and privacy, in plain words
 
@@ -138,8 +159,9 @@ Full details in [docs/security.md](docs/security.md).
 ## Configuration
 
 `local/config.yaml`, created from [config.example.yaml](config.example.yaml).
-The usual things to change: `language`, `silence_timeout`, `button_key`,
-`button2_key` (null for one button), `tts_voice`, `whisper_model`.
+The usual things to change: `speak_language` (`en` or `es`),
+`listen_languages`, `silence_timeout`, `button_key`, `button2_key` (null for
+one button), `button_exclusive`, `tts_voices`, `whisper_model`.
 
 ## The screen
 
@@ -168,10 +190,12 @@ from `modules:` in `local/config.yaml` to turn it off.
   Holding button 2 opens editing: every part of the last formula gets a
   number, and "barra en el siete" or "subíndice en el dos" edits it on the
   spot. See [modules/maths-screen/README.md](modules/maths-screen/README.md).
-- `scribe/` **(shipped)**: the writing desk. Dictate ideas, get prose in the
-  author's own style, correct by paragraph number ("reescribe el tres"). The
-  style is a profile extracted from the author's own papers and grown from
-  every spoken correction; no fine-tuning. See
+- `scribe/` **(shipped)**: the writing desk. What he dictates is written down
+  word for word, one numbered paragraph per utterance; nothing is added,
+  rephrased or tidied. "Revisión" / "review" asks the assistant for
+  corrections and additions, given one at a time and applied only on a yes.
+  Suggestions follow the author's own style, a profile drawn from his papers
+  and grown from every spoken correction; no fine-tuning. See
   [modules/scribe/README.md](modules/scribe/README.md).
 - `computadora/` **(shipped)**: the whole computer. Window switching,
   numbered labels on any app's controls, a click grid, keys, typing, volume
@@ -186,12 +210,12 @@ See [modules/README.md](modules/README.md).
 ## Repository layout
 
 ```
-onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS, launcher
+onebutton/      the loop: button gestures, recording, transcription, Claude turn, speech cleanup, TTS, launcher, the two languages (lang.py)
 onebutton/screen/  the page: panels, ring menu, reading aloud, board editing, vendored KaTeX and marked
 claude/         CLAUDE.md rules installed into the workspace, and the tool allow list
 bin/            onebutton (macOS/Linux), onebutton.cmd (Windows), onebutton-release (maintainer)
 bootstrap/      install.ps1, install.sh and allowed_signers
-docs/           helper guide (Spanish), security model, release process
+docs/           one-page quick start (PDF, English and Spanish), helper guide (Spanish), security model, release process
 tests/          unit tests for the parts that run without audio hardware
 local/          git-ignored: config.yaml, allowed_signers, state.json, logs
 workspace/      git-ignored: the user's own documents, and the installed CLAUDE.md

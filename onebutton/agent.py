@@ -26,12 +26,24 @@ import uuid
 
 from .auth import login_message, subprocess_env
 from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR
+from .lang import L
+from .lang import helper as helper_of
 
-MSG_TIMEOUT = "La tarea tardó demasiado y la detuve. Dime si quieres que lo intente de otra forma."
-MSG_MISSING = "No encuentro Claude Code en esta computadora. Hay que pedir ayuda para instalarlo."
-MSG_CANCELLED = "Cancelado."
-MSG_CRASHED = "Claude Code se cerró de golpe. Repite lo último y lo intento de nuevo."
-MSG_MAX_TURNS = "Me quedé sin pasos para esta tarea. Dime si sigo."
+
+def msg(kind: str) -> str:
+    """What the loop says in place of a reply when a turn did not end well."""
+    return {
+        "timeout": L("The task took too long and I stopped it. Tell me if you want me to try another way.",
+                     "La tarea tardó demasiado y la detuve. Dime si quieres que lo intente de otra forma."),
+        "missing": L("I cannot find Claude Code on this computer. Someone has to help install it.",
+                     "No encuentro Claude Code en esta computadora. Hay que pedir ayuda para instalarlo."),
+        "crashed": L("Claude Code closed all of a sudden. Say the last thing again and I will retry.",
+                     "Claude Code se cerró de golpe. Repite lo último y lo intento de nuevo."),
+        "max_turns": L("I ran out of steps for this task. Tell me if I should go on.",
+                       "Me quedé sin pasos para esta tarea. Dime si sigo."),
+    }[kind]
+
+
 AUTH_HINTS = ("login", "log in", "auth", "token", "credential", "unauthorized", "401", "not logged")
 
 
@@ -49,14 +61,15 @@ def reply_from_result(d: dict, helper: str) -> str:
     if subtype == "success" and text:
         return text
     if subtype == "error_max_turns":
-        return MSG_MAX_TURNS
+        return msg("max_turns")
     errors = " ".join(str(e) for e in (d.get("errors") or [])) if isinstance(d.get("errors"), list) else str(d.get("errors") or "")
     low = (errors + " " + text).lower()
     if any(k in low for k in AUTH_HINTS):
         return login_message(helper)
     if text:
         return text
-    return f"Claude Code devolvió un error: {errors.strip() or subtype or 'sin detalle'}."
+    detail = errors.strip() or subtype or L("no detail", "sin detalle")
+    return L(f"Claude Code returned an error: {detail}.", f"Claude Code devolvió un error: {detail}.")
 
 
 class Session:
@@ -184,7 +197,7 @@ class Session:
             if any(k in err for k in AUTH_HINTS):
                 self.on_reply(login_message(self.agent.helper))
             else:
-                self.on_reply(MSG_CRASHED)
+                self.on_reply(msg("crashed"))
 
     # ---- housekeeping (called by the agent's watchdog) -----------------
     def tick(self, now: float) -> None:
@@ -193,7 +206,7 @@ class Session:
                 return
             if self.pending and now - self.last_send > self.agent.timeout:
                 self.cancel()
-                self.on_reply(MSG_TIMEOUT)
+                self.on_reply(msg("timeout"))
             elif not self.pending and now - self.last_activity > self.agent.idle_close:
                 self.close()   # memory back; the next message resumes the session
 
@@ -208,10 +221,14 @@ class Agent:
         self.max_turns = int(cfg["max_turns"])
         self.settings = REPO_DIR / "claude" / "settings.json"
         self.workspace = WORKSPACE_DIR
-        self.helper = cfg.get("helper_name") or "la persona que te ayuda"
+        self.cfg = cfg
         self.sessions: dict[str, Session] = {}
         self._lock = threading.Lock()
         self._watchdog: threading.Thread | None = None
+
+    @property
+    def helper(self) -> str:
+        return helper_of(self.cfg)
 
     def settings_file(self) -> str:
         """Write the effective settings to local/ and return the path. A file survives any shell's quoting."""
@@ -257,7 +274,7 @@ class Agent:
         """
         s = self.session(session_id, on_reply)
         if not s.send(text, priority):
-            on_reply(MSG_MISSING if not shutil.which(self.bin) and not shutil.which(self.bin.split("/")[-1]) else MSG_CRASHED)
+            on_reply(msg("missing") if not shutil.which(self.bin) and not shutil.which(self.bin.split("/")[-1]) else msg("crashed"))
 
     def working(self, session_id: str) -> bool:
         s = self.sessions.get(session_id)
@@ -289,9 +306,9 @@ class Agent:
 
     # ---- one-shot helpers --------------------------------------------------
     CONVERT_PROMPT = (
-        "Convierte esta expresión matemática dictada en español a LaTeX. "
-        "Responde únicamente con el LaTeX, sin delimitadores de dólar, sin comillas y sin explicación. "
-        "Si hay varias interpretaciones razonables, elige la más común en matemáticas.\n\n{text}"
+        "Convert this mathematical expression, dictated aloud in English or Spanish, to LaTeX. "
+        "Answer with the LaTeX only: no dollar delimiters, no quotes, no explanation. "
+        "If several readings are reasonable, choose the most common one in mathematics.\n\n{text}"
     )
 
     def convert_latex(self, text: str) -> str:

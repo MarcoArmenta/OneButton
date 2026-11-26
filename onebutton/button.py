@@ -13,6 +13,14 @@ Two sources, chosen by `button_source` in the config:
   repeats within a short window counts as a long press.
 
 "auto" tries global and falls back to terminal.
+
+The button is a keyboard key, and with global capture the key would also reach
+whatever window has the focus: a space bar pages a PDF down, Enter submits a
+form. With `exclusive` (the default) the button keys are swallowed, so they
+mean something to OneButton only. Keys that a program types (desktop.py
+pressing Enter for him) are not the button: they pass through to the
+application and are not counted as presses. Swallowing works on Windows and
+macOS; X11 has no way to do it for one key.
 """
 
 from __future__ import annotations
@@ -33,13 +41,52 @@ BURST_COUNT = 6          # terminal mode: repeats within window that mean "held"
 
 _TERMINAL_CHARS = {"space": {" "}, "enter": {"\r", "\n"}, "tab": {"\t"}}
 
+_WIN_KEY_DOWN = (0x0100, 0x0104)   # WM_KEYDOWN, WM_SYSKEYDOWN
+_WIN_INJECTED = 0x12               # LLKHF_INJECTED | LLKHF_LOWER_IL_INJECTED: typed by a program, not a finger
+
+
+def win32_filter(vk_to_button: dict, down, up, suppress):
+    """The low-level keyboard filter for Windows, as pynput wants it.
+
+    A physical press of a button key is counted (`down(name)` / `up(name)`) and swallowed
+    (`suppress()`, which in pynput raises, so nothing after it runs). An injected one is
+    neither: returning False keeps it from the listener and lets the application have it.
+    Any other key is none of our business.
+    """
+    def event_filter(msg, data):
+        name = vk_to_button.get(data.vkCode)
+        if name is None:
+            return True
+        if data.flags & _WIN_INJECTED:
+            return False
+        (down if msg in _WIN_KEY_DOWN else up)(name)
+        suppress()
+        return False
+    return event_filter
+
+
+def darwin_intercept(keycodes: set, keycode_of, pid_of):
+    """The event-tap callback for macOS: returning None swallows the event.
+
+    Only presses from the keyboard itself (source pid 0) are swallowed; what a program posts
+    goes through. pynput has already told the listener about the event by the time this runs.
+    """
+    def intercept(event_type, event):
+        if keycode_of(event) in keycodes and pid_of(event) == 0:
+            return None
+        return event
+    return intercept
+
 
 class Button:
-    def __init__(self, keys: dict[str, str | None], source: str = "auto", filters: dict | None = None):
+    def __init__(self, keys: dict[str, str | None], source: str = "auto", filters: dict | None = None,
+                 exclusive: bool = True):
         """keys maps button name ("talk", "no") to a key name ("space", "enter", "a"); None disables.
 
         filters: min_hold, bounce, refractory, long_hold in seconds (see presses.py).
+        exclusive: swallow the button keys so no other application sees them.
         """
+        self.exclusive = exclusive
         self.events: queue.Queue[tuple[str, str]] = queue.Queue()
         self.keys = {name: k for name, k in keys.items() if k}
         self.filters = dict(filters or {})
@@ -47,7 +94,17 @@ class Button:
         self._drain_only = False
         if source in ("auto", "global"):
             try:
-                self._start_global()
+                try:
+                    self._start_global(self.exclusive)
+                except Exception as exc:
+                    if not self.exclusive:
+                        raise
+                    # Swallowing needs more permission than listening (Accessibility on macOS).
+                    # Better a button that works and also reaches the application than no button.
+                    print(f"[button] no puedo reservar las teclas del botón ({exc}); las verán también las aplicaciones.",
+                          file=sys.stderr)
+                    self.exclusive = False
+                    self._start_global(False)
                 self.source = "global"
                 self._drain_only = True
             except Exception as exc:
@@ -77,7 +134,7 @@ class Button:
             pass
 
     # ---- global (pynput) -----------------------------------------------
-    def _start_global(self) -> None:
+    def _start_global(self, swallow: bool = True) -> None:
         from pynput import keyboard
 
         def to_key(name: str):
@@ -87,17 +144,23 @@ class Button:
         filters = {name: PressFilter(**self.filters) for name in self.keys}
         lock = threading.Lock()
 
+        def down(name):
+            with lock:
+                filters[name].down(time.monotonic())
+
+        def up(name):
+            with lock:
+                filters[name].up(time.monotonic())
+
         def on_press(k):
             name = key_to_button.get(k)
             if name is not None:
-                with lock:
-                    filters[name].down(time.monotonic())
+                down(name)
 
         def on_release(k):
             name = key_to_button.get(k)
             if name is not None:
-                with lock:
-                    filters[name].up(time.monotonic())
+                up(name)
 
         def watcher():  # the filter decides, every 20 ms, what the raw presses meant
             while True:
@@ -108,7 +171,26 @@ class Button:
                         for kind, _ in f.tick(now):
                             self.events.put((name, kind))
 
-        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+        def vk(name: str) -> int | None:
+            """The platform's key code for a key name, when pynput knows it."""
+            k = to_key(name)
+            code = getattr(getattr(k, "value", k), "vk", None)
+            if code is None and os.name == "nt" and len(name) == 1 and name.isalnum():
+                code = ord(name.upper())   # on Windows a letter's or digit's virtual key is its character
+            return code
+
+        extra = {}
+        codes = {vk(k): name for name, k in self.keys.items() if vk(k) is not None}
+        if swallow and codes and os.name == "nt":
+            extra["win32_event_filter"] = win32_filter(codes, down, up, lambda: listener.suppress_event())
+        elif swallow and codes and sys.platform == "darwin":
+            import Quartz
+            extra["darwin_intercept"] = darwin_intercept(
+                set(codes),
+                lambda ev: Quartz.CGEventGetIntegerValueField(ev, Quartz.kCGKeyboardEventKeycode),
+                lambda ev: Quartz.CGEventGetIntegerValueField(ev, Quartz.kCGEventSourceUnixProcessID))
+
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release, **extra)
         listener.daemon = True
         listener.start()
         time.sleep(0.2)

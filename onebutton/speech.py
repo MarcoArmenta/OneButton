@@ -25,6 +25,16 @@ _EMOJI = re.compile(
 _MULTISPACE = re.compile(r"[ \t]+")
 _MULTINEWLINE = re.compile(r"\n{3,}")
 
+_SYMBOLS_EN = {
+    "≤": " less than or equal to ", "≥": " greater than or equal to ", "≠": " not equal to ",
+    "→": " arrow ", "←": " left arrow ", "⇒": " implies ", "⇔": " if and only if ",
+    "∞": " infinity ", "∑": " sum ", "∏": " product ", "∫": " integral ",
+    "√": " square root of ", "≈": " approximately ", "±": " plus or minus ", "×": " times ",
+    "·": " times ", "°": " degrees ", "%": " percent ", "&": " and ", "~": "",
+    "π": " pi ", "α": " alpha ", "β": " beta ", "γ": " gamma ", "δ": " delta ",
+    "ε": " epsilon ", "λ": " lambda ", "μ": " mu ", "σ": " sigma ", "φ": " phi ", "ω": " omega ",
+}
+
 _SYMBOLS = {
     "≤": " menor o igual que ", "≥": " mayor o igual que ", "≠": " distinto de ",
     "→": " flecha ", "←": " flecha izquierda ", "⇒": " implica ", "⇔": " si y sólo si ",
@@ -58,7 +68,7 @@ def clean_for_speech(text: str, lang: str = "es") -> str:
     t = _BULLET.sub("", t)
     t = _EMPH.sub(r"\2", t)
     t = _EMOJI.sub("", t)
-    for sym, word in _SYMBOLS.items():
+    for sym, word in (_SYMBOLS if lang.startswith("es") else _SYMBOLS_EN).items():
         t = t.replace(sym, word)
     t = _MULTISPACE.sub(" ", t)
     t = re.sub(r"\s+([.,;:!?])", r"\1", t)

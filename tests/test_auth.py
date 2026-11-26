@@ -6,6 +6,17 @@ from unittest import mock
 from onebutton import auth
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class AuthTests(unittest.TestCase):
     def test_parse_env_keeps_only_accepted_keys(self):
         text = '''

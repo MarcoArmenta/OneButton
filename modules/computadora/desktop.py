@@ -90,7 +90,11 @@ ALIASES = {"navegador": ["chrome", "msedge", "firefox", "edge"], "chrome": ["chr
            "correo": ["outlook", "thunderbird", "mail", "correo"], "terminal": ["windowsterminal", "cmd", "powershell", "terminal"],
            "pdf": ["acrobat", "acrord32", "sumatrapdf", "pdf"], "lector": ["acrobat", "acrord32", "sumatrapdf", "pdf"],
            "word": ["winword", "word"], "explorador": ["explorer"], "archivos": ["explorer"], "onebutton": ["onebutton"],
-           "pantalla": ["onebutton", "chrome", "msedge"], "claude": ["claude"], "notas": ["notepad", "bloc"], "bloc de notas": ["notepad"]}
+           "pantalla": ["onebutton", "chrome", "msedge"], "claude": ["claude"], "notas": ["notepad", "bloc"], "bloc de notas": ["notepad"],
+           "browser": ["chrome", "msedge", "firefox", "edge"], "mail": ["outlook", "thunderbird", "mail"],
+           "email": ["outlook", "thunderbird", "mail"], "reader": ["acrobat", "acrord32", "sumatrapdf", "pdf"],
+           "files": ["explorer"], "file explorer": ["explorer"], "notes": ["notepad"], "notepad": ["notepad"],
+           "screen": ["onebutton", "chrome", "msedge"]}
 
 
 def focus(name: str) -> int:
@@ -178,8 +182,30 @@ def click(x: int | None, y: int | None, how: str = "left") -> int:
     return out({"clicked": [x, y], "how": how})
 
 
+def _front_window_centre() -> tuple[int, int] | None:
+    """The middle of the window in front, so the wheel turns there and not wherever the pointer was left."""
+    try:
+        if WIN:
+            import ctypes
+            from ctypes import wintypes
+            rect = wintypes.RECT()
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if hwnd and ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)) and rect.right > rect.left:
+                return (rect.left + rect.right) // 2, (rect.top + rect.bottom) // 2
+            return None
+        import pygetwindow as gw
+        w = gw.getActiveWindow()
+        return (int(w.left + w.width // 2), int(w.top + w.height // 2)) if w and getattr(w, "width", 0) else None
+    except Exception:
+        return None
+
+
 def scroll(direction: str, n: int = 5) -> int:
+    """Turn the wheel over the window in front. One unit is about a tenth of a screen of text."""
     import pyautogui
+    where = _front_window_centre()
+    if where:
+        pyautogui.moveTo(*where)
     pyautogui.scroll(n * (1 if direction == "up" else -1) * 100 if WIN else n * (1 if direction == "up" else -1))
     return out({"scrolled": direction, "n": n})
 

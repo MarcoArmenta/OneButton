@@ -14,6 +14,17 @@ from onebutton.config import DEFAULTS
 from onebutton.gestures import SHORT, TALK
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class FakeSpeaker:
     def __init__(self):
         self.said = []
@@ -80,6 +91,9 @@ def make_loop(ws: Path, button_events, heard):
     lp.convs_lock = threading.Lock()
     lp.two_buttons = False
     lp.desktop_enabled = False
+    lp.panels = ["conversacion", "pizarron", "escritorio"]
+    lp.mods = ["maths-screen", "scribe"]
+    lp.last_scroll = None
     lp.screen_alive_until = float("inf")  # screen_try() says no without talking to a server
     lp.button = FakeButton(button_events)
     lp.agent = FakeAgent()

@@ -1,7 +1,7 @@
 /* The OneButton screen: panels, the global ring, reading aloud, and event routing.
  *
  * Events from the loop (POST /event):
- *   {type:"config", panels:[...]}       which panels exist
+ *   {type:"config", panels:[...], lang} which panels exist, and the language the page speaks ("en" or "es")
  *   {type:"panel", name}                show a panel
  *   {type:"menu"}                       open the global ring      {type:"exit"} close everything
  *   {type:"enter"}                      board editing (board.js)  {type:"latex", text}
@@ -13,11 +13,16 @@
   "use strict";
   const C = window.BoardCore;
 
+  const T = C.T;
+  // Panel ids and file names stay Spanish (they are folders in his workspace); labels follow the language,
+  // and each panel answers to its name in both.
   const PANELS = {
-    conversacion: { label: "Conversación", words: ["conversacion", "charla", "respuesta", "respuestas"], doc: "conversacion.md" },
-    pizarron:      { label: "Pizarrón", words: ["pizarron", "pizarra", "formulas"], doc: "pizarron/pizarron.md" },
-    escritorio:   { label: "Escritorio", words: ["escritorio", "escrito", "manuscrito", "articulo", "texto"], doc: null },
+    conversacion: { label: "Conversación", en: "Conversation", words: ["conversacion", "charla", "respuesta", "respuestas", "conversation", "chat"], doc: "conversacion.md" },
+    pizarron:      { label: "Pizarrón", en: "Board", words: ["pizarron", "pizarra", "formulas", "board", "blackboard", "whiteboard"], doc: "pizarron/pizarron.md" },
+    escritorio:   { label: "Escritorio", en: "Desk", words: ["escritorio", "escrito", "manuscrito", "articulo", "texto", "desk", "writing desk", "manuscript", "paper", "draft"], doc: null },
   };
+  const WHO = { "Tú": ["You", "Tú"], "Asistente": ["Assistant", "Asistente"] };   // the file says it in Spanish
+  const READ_RE = /\b(lee|leer|leeme|read|read it)\b/;
 
   const S = {
     panels: ["conversacion", "pizarron", "escritorio"],
@@ -34,16 +39,22 @@
   };
 
   // ---- speech ----------------------------------------------------------------
+  function utterance(text) {
+    // A voice of the language being spoken: a natural one if the system has it.
+    const u = new SpeechSynthesisUtterance(text);
+    const es = C.lang() === "es", rx = es ? /^es/ : /^en/;
+    u.lang = es ? "es-MX" : "en-US";
+    const voices = speechSynthesis.getVoices();
+    const v = voices.find(x => x.lang === u.lang && /natural|neural/i.test(x.name)) || voices.find(x => rx.test(x.lang) && /natural|neural/i.test(x.name))
+      || voices.find(x => x.lang === u.lang) || voices.find(x => rx.test(x.lang));
+    if (v) u.voice = v;
+    return u;
+  }
   function say(text) {
     try {
       if (!window.speechSynthesis) return;
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "es-MX";
-      const voices = speechSynthesis.getVoices();
-      const v = voices.find(x => /^es/.test(x.lang) && /natural|neural/i.test(x.name)) || voices.find(x => /^es/.test(x.lang));
-      if (v) u.voice = v;
-      speechSynthesis.speak(u);
+      speechSynthesis.speak(utterance(text));
     } catch (e) {}
     const el = document.getElementById("status");
     if (el) el.textContent = text;
@@ -95,8 +106,8 @@
     el.innerHTML = parts.map(part => {
       const m = part.match(/^## (\d\d:\d\d) (Tú|Asistente)\n?([\s\S]*)$/);
       if (!m) return "<div class='turn'>" + mdToHtml(part) + "</div>";
-      return "<div class='turn " + (m[2] === "Tú" ? "me" : "bot") + "'><div class='who'>" + m[2] + " <span>" + m[1] + "</span></div>" + mdToHtml(m[3]) + "</div>";
-    }).join("") || "<p class='empty'>Pulsa el botón y habla. Las respuestas aparecen aquí.</p>";
+      return "<div class='turn " + (m[2] === "Tú" ? "me" : "bot") + "'><div class='who'>" + T.apply(null, WHO[m[2]]) + " <span>" + m[1] + "</span></div>" + mdToHtml(m[3]) + "</div>";
+    }).join("") || "<p class='empty'>" + T("Press the button and speak. The replies appear here.", "Pulsa el botón y habla. Las respuestas aparecen aquí.") + "</p>";
     typeset(el);
     el.lastElementChild && el.lastElementChild.scrollIntoView({ block: "end" });
   }
@@ -104,7 +115,7 @@
   function renderBoard(text, sel) {
     const el = document.getElementById("panel-pizarron");
     if (sel) { const f = sel.f, h = sel.h; text = text.slice(0, f.start) + C.highlight(f.inner, h, sel.color) + text.slice(f.end); }
-    el.innerHTML = text.trim() ? mdToHtml(text) : "<p class='empty'>Pizarrón vacío. Pide algo con matemáticas y aparecerá aquí.</p>";
+    el.innerHTML = text.trim() ? mdToHtml(text) : "<p class='empty'>" + T("The board is empty. Ask for something with mathematics and it will appear here.", "Pizarrón vacío. Pide algo con matemáticas y aparecerá aquí.") + "</p>";
     typeset(el);
     if (!sel && el.lastElementChild) el.lastElementChild.scrollIntoView({ block: "end" });
   }
@@ -113,12 +124,13 @@
   function renderManuscript() {
     const el = document.getElementById("panel-escritorio");
     const text = S.manuscript ? (S.docs[S.manuscript] || "") : "";
-    if (!S.manuscript) { el.innerHTML = "<p class='empty'>No hay ningún escrito abierto. Di: nuevo escrito, o abre el escrito tal.</p>"; return; }
+    if (!S.manuscript) { el.innerHTML = "<p class='empty'>" + T("No piece of writing is open. Say: new paper, or open the paper so-and-so.", "No hay ningún escrito abierto. Di: nuevo escrito, o abre el escrito tal.") + "</p>"; return; }
     const blocks = blocksOf(text);
     el.innerHTML = blocks.map((b, i) => "<div class='block' data-n='" + (i + 1) + "'><span class='n'>" + (i + 1) + "</span>" + mdToHtml(b) + "</div>").join("")
-      || "<p class='empty'>El escrito está vacío. Dicta una idea y la desarrollo.</p>";
+      || "<p class='empty'>" + T("The page is empty. Dictate, and your words are written down exactly as you say them. Say 'review' when you want suggestions.", "El escrito está vacío. Dicta, y tus palabras quedan escritas tal como las dices. Di 'revisión' cuando quieras sugerencias.") + "</p>";
     typeset(el);
     if (S.reading) highlightBlock(S.reading.i);
+    else if (el.lastElementChild) el.lastElementChild.scrollIntoView({ block: "end" });   // what he just dictated stays in view
   }
 
   function highlightBlock(i) {
@@ -139,28 +151,36 @@
     S.panel = name;
     document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
     document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.panel === name));
-    if (!silent) say(PANELS[name].label + ".");
+    if (!silent) say(plabel(name) + ".");
   }
 
+  function plabel(name) { return T(PANELS[name].en, PANELS[name].label); }
   function renderTabs() {
     const tabs = document.getElementById("tabs");
-    tabs.innerHTML = S.panels.map(n => "<button data-panel='" + n + "' class='" + (n === S.panel ? "active" : "") + "'>" + PANELS[n].label + "</button>").join("");
+    tabs.innerHTML = S.panels.map(n => "<button data-panel='" + n + "' class='" + (n === S.panel ? "active" : "") + "'>" + plabel(n) + "</button>").join("");
+  }
+  function setLanguage(l) {
+    if (!l || l === C.lang()) return;
+    C.setLang(l);
+    document.documentElement.lang = C.lang();
+    renderTabs(); renderConversation(); renderManuscript();
+    if (S.mode !== "board") renderBoard(S.docs["pizarron/pizarron.md"] || "");
   }
 
   // ---- ring --------------------------------------------------------------------
   function ringItems() {
     const items = [];
-    for (const n of S.panels) items.push({ id: "panel:" + n, label: PANELS[n].label, words: PANELS[n].words, action: () => { closeRing(); showPanel(n); } });
-    if (S.panels.includes("pizarron")) items.push({ id: "board", label: "Editar fórmula", words: ["editar", "formula", "editar formula"], action: () => { closeRing(); showPanel("pizarron", true); S.mode = "board"; BoardUI.handle({ type: "enter", seq: S.lastSeq }); } });
-    items.push({ id: "read", label: "Leer", words: ["leer", "lee", "leeme"], action: () => { closeRing(); startReading(); } });
-    items.push({ id: "help", label: "Ayuda", words: ["ayuda"], action: () => { closeRing(); say("Di el nombre de un panel: conversación, pizarrón o escritorio. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir."); } });
-    items.push({ id: "exit", label: "Salir", words: ["salir", "cerrar", "listo"], action: () => { closeRing(); } });
+    for (const n of S.panels) items.push({ id: "panel:" + n, label: plabel(n), words: PANELS[n].words, action: () => { closeRing(); showPanel(n); } });
+    if (S.panels.includes("pizarron")) items.push({ id: "board", label: T("Edit formula", "Editar fórmula"), words: ["editar", "formula", "editar formula", "edit", "edit formula"], action: () => { closeRing(); showPanel("pizarron", true); S.mode = "board"; BoardUI.handle({ type: "enter", seq: S.lastSeq }); } });
+    items.push({ id: "read", label: T("Read", "Leer"), words: ["leer", "lee", "leeme", "read"], action: () => { closeRing(); startReading(); } });
+    items.push({ id: "help", label: T("Help", "Ayuda"), words: ["ayuda", "help"], action: () => { closeRing(); say(T("Say the name of a panel: conversation, board or desk. Say edit formula to change a formula by its number. Say read to have the panel read to you. Press button two to move on and hold button one to choose. Hold button two to leave.", "Di el nombre de un panel: conversación, pizarrón o escritorio. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir.")); } });
+    items.push({ id: "exit", label: T("Exit", "Salir"), words: ["salir", "cerrar", "listo", "exit", "close", "done"], action: () => { closeRing(); } });
     return items;
   }
 
   function openRing() {
     S.mode = "menu"; S.ring = ringItems(); S.ringIndex = 0; drawRing();
-    say("Menú. " + S.ring[0].label + ". Di a dónde quieres ir, o pulsa el dos para pasar y mantén el uno para elegir.");
+    say(T("Menu. " + S.ring[0].label + ". Say where you want to go, or press button two to move on and hold button one to choose.", "Menú. " + S.ring[0].label + ". Di a dónde quieres ir, o pulsa el dos para pasar y mantén el uno para elegir."));
   }
   function closeRing() {
     S.mode = "idle"; S.ring = []; drawRing();
@@ -191,12 +211,12 @@
     return last ? blocksOf(last.replace(/^## .*\n?/, "")) : [];
   }
   function spoken(block) {
-    return block.replace(/\$\$[\s\S]+?\$\$/g, " fórmula. ").replace(/\$[^$\n]+?\$/g, " fórmula ")
+    return block.replace(/\$\$[\s\S]+?\$\$/g, T(" formula. ", " fórmula. ")).replace(/\$[^$\n]+?\$/g, T(" formula ", " fórmula "))
       .replace(/^#+\s*/gm, "").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
   }
   function startReading(from) {
     const blocks = readableBlocks();
-    if (!blocks.length) { say("No hay nada que leer aquí."); return; }
+    if (!blocks.length) { say(T("There is nothing to read here.", "No hay nada que leer aquí.")); return; }
     S.mode = "reading"; S.reading = { blocks, i: Math.max(0, Math.min(blocks.length - 1, (from || 1) - 1)) };
     readCurrent();
   }
@@ -205,15 +225,11 @@
     if (S.panel === "escritorio") highlightBlock(r.i);
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance((r.i + 1) + ". " + spoken(r.blocks[r.i]));
-      u.lang = "es-MX";
-      const voices = speechSynthesis.getVoices();
-      const v = voices.find(x => /^es/.test(x.lang) && /natural|neural/i.test(x.name)) || voices.find(x => /^es/.test(x.lang));
-      if (v) u.voice = v;
-      u.onend = () => { if (S.mode === "reading" && S.reading === r) { if (r.i + 1 < r.blocks.length) { r.i++; readCurrent(); } else stopReading("Fin."); } };
+      const u = utterance((r.i + 1) + ". " + spoken(r.blocks[r.i]));
+      u.onend = () => { if (S.mode === "reading" && S.reading === r) { if (r.i + 1 < r.blocks.length) { r.i++; readCurrent(); } else stopReading(T("The end.", "Fin.")); } };
       speechSynthesis.speak(u);
     } catch (e) { stopReading(""); }
-    const el = document.getElementById("status"); if (el) el.textContent = "Leyendo " + (r.i + 1) + " de " + r.blocks.length + ". Botón dos: siguiente. Mantén el dos: parar.";
+    const el = document.getElementById("status"); if (el) el.textContent = T("Reading " + (r.i + 1) + " of " + r.blocks.length + ". Button two: next. Hold button two: stop.", "Leyendo " + (r.i + 1) + " de " + r.blocks.length + ". Botón dos: siguiente. Mantén el dos: parar.");
   }
   function stopReading(msg) {
     try { speechSynthesis.cancel(); } catch (e) {}
@@ -235,13 +251,13 @@
     if (S.mode === "reading") {
       const n = C.parseNumber(text);
       if (n !== null && S.reading && n >= 1 && n <= S.reading.blocks.length) { S.reading.i = n - 1; readCurrent(); return true; }
-      if (/\b(para|basta|alto|stop|silencio)\b/.test(t)) { stopReading("Parado."); return true; }
+      if (/\b(para|basta|alto|stop|silencio|enough|quiet)\b/.test(t)) { stopReading(T("Stopped.", "Parado.")); return true; }
       return false;
     }
     // idle: a short utterance naming a panel, or "lee ...", is handled here; sentences go to Claude
     if (t.split(" ").length > 4) return false;
     for (const n of S.panels) if (C.findItem(text, [{ words: PANELS[n].words }])) { showPanel(n); return true; }
-    if (/\b(lee|leer|leeme)\b/.test(t)) { startReading(C.parseNumber(text)); return true; }
+    if (READ_RE.test(t)) { startReading(C.parseNumber(text)); return true; }
     return false;
   }
 
@@ -253,7 +269,7 @@
     }
     if (S.mode === "reading") {
       const r = S.reading;
-      if (button === "no" && gesture === "short") { if (r.i + 1 < r.blocks.length) { r.i++; readCurrent(); } else stopReading("Fin."); }
+      if (button === "no" && gesture === "short") { if (r.i + 1 < r.blocks.length) { r.i++; readCurrent(); } else stopReading(T("The end.", "Fin.")); }
       else if (button === "talk" && gesture === "long") { readCurrent(); }
       return;
     }
@@ -275,7 +291,7 @@
 
   function handle(ev) {
     let handled = true;
-    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); renderTabs(); applyLook(ev); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
+    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); setLanguage(ev.lang); renderTabs(); applyLook(ev); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
     else if (ev.type === "panel") showPanel(ev.name);
     else if (ev.type === "menu") { if (S.mode === "board") { BoardUI.exit(); } if (S.mode === "reading") stopReading(""); openRing(); }
     else if (ev.type === "exit") { if (S.mode === "board") BoardUI.exit(); if (S.mode === "reading") stopReading(""); closeRing(); S.mode = "idle"; }

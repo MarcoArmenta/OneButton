@@ -1,10 +1,33 @@
 # Changelog
 
-Each release has a short section in Spanish first, then English. The Spanish
-section is what the user hears before an update is installed, so keep it short,
-concrete and free of jargon.
+Each release has a paragraph that starts **Español.** and one that starts
+**English.** Before an update is installed the user hears the one in the
+language the computer speaks, so keep both short, concrete and free of jargon.
 
 ## Unreleased
+
+**Español.** La computadora ahora habla en inglés y entiende español e inglés
+a la vez; di "habla en español" para que vuelva a hablar español, y queda
+guardado. Los botones ya no llegan a los programas: antes un botón pasaba de
+página un PDF y no había forma de volver. Ahora la página se mueve con la voz:
+"baja", "baja un poco", "baja mucho", "otra vez", "ve hacia arriba", "al
+principio". En el escritorio, lo que dictas queda escrito tal como lo dices,
+sin que el asistente añada ni cambie nada; di "revisión" y te propone
+correcciones y añadidos de uno en uno, y tú decides cada uno. Hay una hoja de
+inicio rápido para imprimir, en inglés y en español.
+
+**English.** The computer now speaks English and understands English and
+Spanish at once; say "speak Spanish" to switch, and it is remembered. The
+buttons no longer reach applications: a press used to page a PDF down with no
+way back. Pages now move by voice: "scroll down", "a little", "a lot",
+"again", "go up", "go to the top". On the writing desk what you dictate is
+written exactly as you say it, with nothing added or changed; say "review" and
+the assistant proposes corrections and additions one at a time, and you decide
+each one. There is a one-page quick start to print, in English and Spanish.
+Config: `speak_language` and `listen_languages` replace `language`;
+`tts_voices` and `whisper_prompts` are per language; `button_exclusive` is new.
+
+Earlier, also unreleased:
 
 **Español.** Primera versión. Uno o dos botones. Con dos: el uno habla y, si
 se mantiene pulsado, dice sí; el dos cancela o dice no. Con uno: pulsar para

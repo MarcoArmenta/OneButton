@@ -14,6 +14,17 @@ from onebutton.config import DEFAULTS
 FAKE = Path(__file__).resolve().parent / "fake_claude.py"
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class AgentSettingsTests(unittest.TestCase):
     def test_settings_file_has_allow_list_and_absolute_denies(self):
         with tempfile.TemporaryDirectory() as d:
@@ -36,7 +47,7 @@ class AgentSettingsTests(unittest.TestCase):
                 a = agent_mod.Agent(dict(DEFAULTS, claude_bin="definitely-not-a-real-binary"))
                 got = []
                 a.send("s1", "hola", got.append)
-                self.assertEqual(got, [agent_mod.MSG_MISSING])
+                self.assertEqual(got, [agent_mod.msg("missing")])
 
 
 class PureTests(unittest.TestCase):
@@ -49,7 +60,7 @@ class PureTests(unittest.TestCase):
     def test_reply_from_result(self):
         r = agent_mod.reply_from_result
         self.assertEqual(r({"subtype": "success", "result": " listo "}, "Marco"), "listo")
-        self.assertEqual(r({"subtype": "error_max_turns", "result": None}, "Marco"), agent_mod.MSG_MAX_TURNS)
+        self.assertEqual(r({"subtype": "error_max_turns", "result": None}, "Marco"), agent_mod.msg("max_turns"))
         self.assertIn("Marco", r({"subtype": "error_during_execution", "errors": ["Not logged in: run /login"]}, "Marco"))
         self.assertIn("devolvió un error", r({"subtype": "error_during_execution", "errors": ["boom"]}, "Marco"))
         self.assertEqual(r({"subtype": "success", "is_error": True, "result": "no puedo"}, "Marco"), "no puedo")
@@ -136,7 +147,7 @@ class SessionTests(unittest.TestCase):
     def test_crash_mid_turn_is_reported_once(self):
         got = []
         self.agent.send("sid-1", "crash", got.append)
-        self.assertTrue(wait_until(lambda: got == [agent_mod.MSG_CRASHED]))
+        self.assertTrue(wait_until(lambda: got == [agent_mod.msg("crashed")]))
         self.assertFalse(self.agent.working("sid-1"))
 
     def test_timeout_is_reported(self):
@@ -144,7 +155,7 @@ class SessionTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"FAKE_CLAUDE_DELAY": "10"}):
             got = []
             self.agent.send("sid-1", "eterno", got.append)
-            self.assertTrue(wait_until(lambda: got == [agent_mod.MSG_TIMEOUT], 6))
+            self.assertTrue(wait_until(lambda: got == [agent_mod.msg("timeout")], 6))
 
     def test_idle_close_then_resume(self):
         self.agent.idle_close = 1

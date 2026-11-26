@@ -11,6 +11,7 @@ The screen always gets the text too.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,9 +34,9 @@ def _which(*names: str) -> str | None:
 class Speaker:
     def __init__(self, cfg: dict):
         self.engine = cfg.get("tts", "auto")
-        self.voice = cfg.get("tts_voice") or ""
+        self.voices = dict(cfg.get("tts_voices") or {})
         self.rate = int(cfg.get("tts_rate", 170))
-        self.lang = cfg.get("language", "es")
+        self.set_language(cfg.get("speak_language", "en"))
         self.piper_model = cfg.get("piper_model") or ""
         self._proc: subprocess.Popen | None = None
         self._last_rc = 0
@@ -59,6 +60,12 @@ class Speaker:
         self.interruptible = self.engine in ("say", "winrt", "sapi", "piper", "espeak")
 
     # ---- public --------------------------------------------------------
+    def set_language(self, code: str) -> None:
+        """Speak in `code` from now on, with that language's voice (the system's own when none is named)."""
+        self.lang = code
+        self.voice = self.voices.get(code[:2]) or ""
+        self._pyttsx3 = None
+
     def say(self, text: str, show: bool = True, until: Callable[[], bool] | None = None,
             clean: bool = False) -> bool:
         """Speak `text`. Returns False if interrupted by `until()` turning True."""
@@ -72,7 +79,8 @@ class Speaker:
             return True
         try:
             if self.engine == "say":
-                cmd = ["say", "-r", str(self.rate)] + (["-v", self.voice] if self.voice else []) + [spoken]
+                voice = self.voice or self._say_voice()
+                cmd = ["say", "-r", str(self.rate)] + (["-v", voice] if voice else []) + [spoken]
                 return self._run(cmd, until)
             if self.engine == "espeak":
                 exe = _which("espeak-ng", "espeak") or "espeak"
@@ -108,6 +116,30 @@ class Speaker:
                 self._proc.kill()
 
     # ---- engines -------------------------------------------------------
+    _say_voices: dict = {}
+    _SAY_PREFERRED = {"en": ("Samantha", "Alex", "Daniel", "Karen"), "es": ("Paulina", "Mónica", "Jorge", "Juan")}
+
+    def _say_voice(self) -> str:
+        """macOS: a voice of the spoken language, so Spanish is not read by an English voice or the reverse.
+
+        `say -v ?` lists "Name   xx_YY  # sample". A well-known plain voice is preferred, then one of the
+        newer multi-language voices ("Eddy (English (US))"); the novelty ones (Bells, Jester) come first
+        in the list and are never the answer.
+        """
+        lang = self.lang[:2]
+        if lang not in Speaker._say_voices:
+            found = ""
+            try:
+                listing = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=10).stdout
+                names = [m.group(1).strip() for m in re.finditer(rf"^(.+?)\s+{lang}_[A-Z]{{2}}\s+#", listing, re.MULTILINE)]
+                for want in self._SAY_PREFERRED.get(lang, ()):
+                    found = found or next((n for n in names if n == want or n.startswith(want + " (")), "")
+                found = found or next((n for n in names if "(" in n), "")
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+            Speaker._say_voices[lang] = found
+        return Speaker._say_voices[lang]
+
     def _run(self, cmd: list[str], until: Callable[[], bool] | None, input_text: str | None = None) -> bool:
         with self._lock:
             self._proc = subprocess.Popen(

@@ -12,13 +12,24 @@ from .config import REPO_DIR, WORKSPACE_DIR
 
 MODULES_DIR = REPO_DIR / "modules"
 
+# What the base rules say about language, by the language the computer speaks.
+SPEAK = {
+    "en": {"LANGUAGE": "English", "OTHER": "Spanish", "CONFIRM": "Go ahead?", "YES": '"go ahead" or "yes, go ahead"',
+           "COMMA": '"comma"'},
+    "es": {"LANGUAGE": "Spanish", "OTHER": "English", "CONFIRM": "¿Adelante?", "YES": '"adelante" or "sí, adelante"',
+           "COMMA": '"coma"'},
+}
+
 
 def available_modules() -> list[str]:
     return sorted(p.parent.name for p in MODULES_DIR.glob("*/CLAUDE.md"))
 
 
-def assemble(enabled: list[str]) -> str:
-    parts = [(REPO_DIR / "claude" / "CLAUDE.md").read_text(encoding="utf-8").rstrip()]
+def assemble(enabled: list[str], speak: str = "en") -> str:
+    base = (REPO_DIR / "claude" / "CLAUDE.md").read_text(encoding="utf-8").rstrip()
+    for key, value in SPEAK.get(speak, SPEAK["en"]).items():
+        base = base.replace("{{" + key + "}}", value)
+    parts = [base]
     for name in enabled:
         path = MODULES_DIR / name / "CLAUDE.md"
         if not path.exists():
@@ -28,8 +39,8 @@ def assemble(enabled: list[str]) -> str:
     return "\n".join(parts) + "\n"
 
 
-def install(enabled: list[str], workspace: Path = WORKSPACE_DIR) -> Path:
+def install(enabled: list[str], workspace: Path = WORKSPACE_DIR, speak: str = "en") -> Path:
     workspace.mkdir(parents=True, exist_ok=True)
     target = workspace / "CLAUDE.md"
-    target.write_text(assemble(enabled), encoding="utf-8")
+    target.write_text(assemble(enabled, speak), encoding="utf-8")
     return target

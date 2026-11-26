@@ -5,6 +5,9 @@
     blocks.py get <file> N           print block N
     blocks.py set <file> N           replace block N with stdin (empty stdin deletes it)
     blocks.py insert <file> N        insert stdin as a new block after N (0 = at the start)
+    blocks.py append <file>          add stdin as a new block at the end; prints its number
+
+Text arrives on stdin and is written as it is, so dictation is kept word for word.
 
 A block is a run of non-blank lines. Fenced code (```) and display maths ($$ on
 its own line) stay whole even when they contain blank lines. Headings count
@@ -88,6 +91,15 @@ def main(argv: list[str]) -> int:
             blocks[n - 1] = new
         else:
             del blocks[n - 1]
+    elif cmd == "append":
+        if not new.strip():
+            print("nada que añadir", file=sys.stderr)
+            return 1
+        blocks.append(new)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(join_blocks(blocks), encoding="utf-8")
+        print(f"bloque {len(blocks)}")
+        return 0
     elif cmd == "insert":
         if not 0 <= n <= len(blocks):
             print(f"posición {n} fuera de rango; hay {len(blocks)}", file=sys.stderr)

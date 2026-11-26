@@ -15,6 +15,7 @@ import sys
 import time
 
 from .config import REPO_DIR, load
+from .lang import L, set_language
 
 
 def refresh_dependencies() -> None:
@@ -32,17 +33,19 @@ def main(argv: list[str] | None = None) -> int:
     from .tts import Speaker
 
     args = list(sys.argv[1:] if argv is None else argv)
-    speaker = Speaker(load())
     env = dict(os.environ, ONEBUTTON_HOME=str(REPO_DIR))
     while True:
         rc = subprocess.call([sys.executable, "-m", "onebutton", *args], cwd=REPO_DIR, env=env)
         if rc == 0:
             return 0
+        cfg = load()   # read again: the language may have been changed by voice while the loop ran
+        set_language(cfg["speak_language"])
+        speaker = Speaker(cfg)
         if rc == 3:
-            speaker.say("Reiniciando con la nueva versión.")
+            speaker.say(L("Restarting.", "Reiniciando."))
             refresh_dependencies()
         else:
-            speaker.say("OneButton se reinició. Espera un momento.")
+            speaker.say(L("OneButton restarted. Wait a moment.", "OneButton se reinició. Espera un momento."))
             time.sleep(3)
 
 

@@ -29,6 +29,11 @@ assert.strictEqual(C.parseNumber("barra en el 3"), 3);
 assert.strictEqual(C.parseNumber("veintiuno"), 21);
 assert.strictEqual(C.parseNumber("una barra"), null, "articles are not numbers");
 assert.strictEqual(C.parseNumber("nada"), null);
+assert.strictEqual(C.parseNumber("bar on the seven"), 7);
+assert.strictEqual(C.parseNumber("thirty two"), 32);
+assert.strictEqual(C.parseNumber("twenty"), 20);
+assert.strictEqual(C.parseNumber("treinta dos"), 30, "Spanish tens need 'y'");
+assert.strictEqual(C.parseNumber("a bar"), null, "articles are not numbers");
 
 // menu matching
 const L = C.leaves(C.MENU);
@@ -38,6 +43,20 @@ assert.strictEqual(C.findItem("al cuadrado", L).id, "sq");
 assert.strictEqual(C.findItem("bórralo", L), null);
 assert.strictEqual(C.findItem("borra", L).id, "delete");
 assert.strictEqual(C.findItem("hola", L), null);
+assert.strictEqual(C.findItem("put a bar on the four", L).id, "bar");
+assert.strictEqual(C.findItem("subscript please", L).id, "sub");
+assert.strictEqual(C.findItem("squared", L).id, "sq");
+assert.strictEqual(C.findItem("delete it", L).id, "delete");
+assert.strictEqual(C.findItem("hello", L), null);
+
+// what the page says follows the language; what it understands does not
+assert.strictEqual(C.label(C.MENU[0]), "Decorate");
+assert.strictEqual(C.needs(L.find(x => x.id === "sub")), "the subscript");
+C.setLang("es");
+assert.strictEqual(C.label(C.MENU[0]), "Decorar");
+assert.strictEqual(C.needs(L.find(x => x.id === "sub")), "el subíndice");
+assert.strictEqual(C.T("yes", "sí"), "sí");
+C.setLang("en");
 
 // formulas in markdown
 const fs = C.findFormulas("a $x$ b $$y$$ c \\(z\\) \\[w\\] and $5 dollars");

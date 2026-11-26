@@ -12,6 +12,8 @@ With one button the old mapping holds: talk long = cancel, or help when idle.
 
 from __future__ import annotations
 
+from .lang import L
+
 TALK, NO = "talk", "no"
 SHORT, LONG = "short", "long"
 
@@ -57,11 +59,25 @@ def interpret(event: Event, state: str, two_buttons: bool) -> str:
 
 def help_text(two_buttons: bool) -> str:
     if two_buttons:
-        return ("Botón uno: pulsa para hablar y otra vez para terminar. Mantenlo pulsado para decir sí "
-                "cuando te pregunte, o para repetir la última respuesta. "
-                "Botón dos: pulsa para cancelar o decir no. Mantenlo pulsado para oír esta ayuda. "
-                "Di 'nueva conversación' para empezar otra cosa mientras una tarea sigue, y 'conversación uno' para volver. "
-                "Di 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
-    return ("Pulsa una vez para hablar y otra vez para terminar. Mantén pulsado para cancelar. "
-            "Di 'repite' para oír la última respuesta, 'nueva conversación' para empezar otra cosa mientras "
-            "una tarea sigue, 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
+        return L(
+            "Button one: press to talk and press again to finish. Hold it to say yes when I ask, "
+            "or to hear the last reply again. "
+            "Button two: press to cancel or say no. Hold it to hear this help. "
+            "To move a page, say 'scroll down', 'a little more', 'again' or 'go up'. "
+            "Say 'new conversation' to start something else while a task goes on, and 'conversation one' to go back. "
+            "Say 'update' to look for improvements, or 'undo' to go back to the previous version.",
+            "Botón uno: pulsa para hablar y otra vez para terminar. Mantenlo pulsado para decir sí "
+            "cuando te pregunte, o para repetir la última respuesta. "
+            "Botón dos: pulsa para cancelar o decir no. Mantenlo pulsado para oír esta ayuda. "
+            "Para mover una página di 'baja', 'baja un poco', 'otra vez' o 've hacia arriba'. "
+            "Di 'nueva conversación' para empezar otra cosa mientras una tarea sigue, y 'conversación uno' para volver. "
+            "Di 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
+    return L(
+        "Press once to talk and once more to finish. Hold to cancel. "
+        "Say 'repeat' to hear the last reply, 'scroll down' or 'go up' to move a page, 'new conversation' to start "
+        "something else while a task goes on, 'update' to look for improvements, or 'undo' to go back to the "
+        "previous version.",
+        "Pulsa una vez para hablar y otra vez para terminar. Mantén pulsado para cancelar. "
+        "Di 'repite' para oír la última respuesta, 'baja' o 've hacia arriba' para mover una página, "
+        "'nueva conversación' para empezar otra cosa mientras una tarea sigue, 'actualiza' para buscar mejoras, "
+        "o 'deshacer' para volver a la versión anterior.")

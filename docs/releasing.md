@@ -15,8 +15,11 @@ Rotating the key later means a helper must copy the new line into the user's
 
 Each release:
 
-1. Add a `## vX.Y.Z` section at the top of `CHANGELOG.md`, Spanish first,
-   written as you would say it aloud. Bump `__version__` in `onebutton/__init__.py`.
+1. Add a `## vX.Y.Z` section at the top of `CHANGELOG.md` with a paragraph
+   starting `**Español.**` and one starting `**English.**`, each written as
+   you would say it aloud; the user hears the one in the language the computer
+   speaks. If a command changed, update `docs/quick-start/build.py` and
+   rebuild the two PDFs. Bump `__version__` in `onebutton/__init__.py`.
 2. Merge to `main`.
 3. `bin/onebutton-release vX.Y.Z`
 4. `git push origin main vX.Y.Z`

@@ -18,6 +18,7 @@ import yaml
 
 from . import hardware
 from .config import LOCAL_DIR
+from .lang import L
 
 KEY_NAMES = {" ": "space", "\r": "enter", "\n": "enter", "\t": "tab"}
 TALK_SIDE_DEFAULT = "right"
@@ -60,43 +61,53 @@ def learn_buttons(say, wait_key=None, pause=time.sleep) -> dict:
     """
     wait_key = wait_key or _wait_key
     out: dict = {}
-    say("Vamos a conocer tu equipo. Primero los botones.")
-    say("Pulsa el botón de la izquierda. Si sólo tienes un botón, pulsa ese.")
+    say(L("Let us get to know your equipment. First the buttons.", "Vamos a conocer tu equipo. Primero los botones."))
+    say(L("Press the button on the left. If you only have one button, press that one.",
+          "Pulsa el botón de la izquierda. Si sólo tienes un botón, pulsa ese."))
     left = None
     for _ in range(3):
         left = wait_key(20)
         if left:
             break
-        say("No detecté nada. Pulsa el botón de la izquierda, o el único que tengas.")
+        say(L("I did not detect anything. Press the button on the left, or the only one you have.",
+              "No detecté nada. Pulsa el botón de la izquierda, o el único que tengas."))
     if not left:
-        say("No detecté ningún botón. Seguiré con la configuración anterior.")
+        say(L("I did not detect any button. I will keep the previous settings.",
+              "No detecté ningún botón. Seguiré con la configuración anterior."))
         return out
-    say(f"Botón izquierdo registrado: {left}.")
+    say(L(f"Left button registered: {left}.", f"Botón izquierdo registrado: {left}."))
     pause(1.0)
 
-    say("Ahora el de la derecha. Si sólo tienes uno, no hagas nada y espera.")
+    say(L("Now the one on the right. If you only have one, do nothing and wait.",
+          "Ahora el de la derecha. Si sólo tienes uno, no hagas nada y espera."))
     right = wait_key(12)
     while right == left:
-        say("Ese es el mismo botón. Si tienes otro a la derecha, púlsalo; si no, espera.")
+        say(L("That is the same button. If you have another on the right, press it; if not, wait.",
+              "Ese es el mismo botón. Si tienes otro a la derecha, púlsalo; si no, espera."))
         right = wait_key(10)
     if not right:
-        say("De acuerdo, un solo botón. Pulsar es hablar; mantenerlo pulsado es cancelar.")
+        say(L("All right, a single button. Pressing is talking; holding it is cancelling.",
+              "De acuerdo, un solo botón. Pulsar es hablar; mantenerlo pulsado es cancelar."))
         out.update({"talk": left, "no": None, "sides": {"left": left}, "talk_side": "left"})
         return out
-    say(f"Botón derecho registrado: {right}.")
+    say(L(f"Right button registered: {right}.", f"Botón derecho registrado: {right}."))
     pause(1.0)
 
     talk_side = TALK_SIDE_DEFAULT
-    say("El derecho será para hablar y para decir sí. El izquierdo, para decir no y abrir el menú. "
-        "Si prefieres hablar con el izquierdo, púlsalo ahora. Si así está bien, no hagas nada y espera.")
+    say(L("The right one will be for talking and for saying yes. The left one, for saying no and opening the menu. "
+          "If you would rather talk with the left one, press it now. If this is fine, do nothing and wait.",
+          "El derecho será para hablar y para decir sí. El izquierdo, para decir no y abrir el menú. "
+          "Si prefieres hablar con el izquierdo, púlsalo ahora. Si así está bien, no hagas nada y espera."))
     k = wait_key(8)
     while k and k not in (left, right):
         k = wait_key(4)
     if k == left:
         talk_side = "left"
-        say("De acuerdo: hablas con el izquierdo, y el derecho es no.")
+        say(L("All right: you talk with the left one, and the right one is no.",
+              "De acuerdo: hablas con el izquierdo, y el derecho es no."))
     else:
-        say("De acuerdo: hablas con el derecho, y el izquierdo es no.")
+        say(L("All right: you talk with the right one, and the left one is no.",
+              "De acuerdo: hablas con el derecho, y el izquierdo es no."))
     talk, no = (right, left) if talk_side == "right" else (left, right)
     out.update({"talk": talk, "no": no, "sides": {"left": left, "right": right}, "talk_side": talk_side})
     return out
@@ -104,13 +115,17 @@ def learn_buttons(say, wait_key=None, pause=time.sleep) -> dict:
 
 def describe_screens(scr: list[dict], preset: str, page: dict | None) -> str:
     if not scr:
-        return "No veo ninguna pantalla; la página se abrirá donde el navegador quiera."
+        return L("I see no screen; the page will open wherever the browser likes.",
+                 "No veo ninguna pantalla; la página se abrirá donde el navegador quiera.")
     if preset == "glasses":
-        return "Veo una pantalla muy ancha; usaré el modo gafas."
+        return L("I see a very wide screen; I will use glasses mode.", "Veo una pantalla muy ancha; usaré el modo gafas.")
     if len(scr) == 1:
-        return "Veo una pantalla; usaré el modo monitor."
-    where = "la segunda" if page and not page.get("primary") else "la principal"
-    return f"Veo {len(scr)} pantallas. La página irá a pantalla completa en {where}, y la terminal se queda en la otra."
+        return L("I see one screen; I will use monitor mode.", "Veo una pantalla; usaré el modo monitor.")
+    second = page and not page.get("primary")
+    return L(f"I see {len(scr)} screens. The page will go full screen on the {'second' if second else 'main'} one, "
+             f"and the terminal stays on the other.",
+             f"Veo {len(scr)} pantallas. La página irá a pantalla completa en {'la segunda' if second else 'la principal'}, "
+             f"y la terminal se queda en la otra.")
 
 
 def run(cfg: dict, speaker, transcriber_factory=None, recorder_factory=None, wait_key=None) -> dict:
@@ -128,16 +143,17 @@ def run(cfg: dict, speaker, transcriber_factory=None, recorder_factory=None, wai
     info = hardware.detect(cfg.get("screen_display", "auto"))
     mics = info["microphones"]
     if not mics:
-        say("No encuentro ningún micrófono. Hay que conectar uno.")
+        say(L("I cannot find any microphone. One has to be plugged in.", "No encuentro ningún micrófono. Hay que conectar uno."))
     elif transcriber_factory and recorder_factory:
-        say("Ahora el micrófono. Cuando oigas la señal, di: hola, me llamo, y tu nombre.")
+        say(L("Now the microphone. When you hear the signal, say: hello, my name is, and your name.",
+              "Ahora el micrófono. Cuando oigas la señal, di: hola, me llamo, y tu nombre."))
         ok = False
         for mic in sorted(mics, key=lambda m: not m["default"]):
             cfg_try = dict(cfg, input_device=mic["index"], silence_timeout=4, max_recording=6)
             try:
                 rec = recorder_factory(cfg_try)
                 rec.calibrate(0.5)
-                say("Ahora.")
+                say(L("Now.", "Ahora."))
                 import threading
                 audio = rec.record_until(threading.Event())
                 text = transcriber_factory(cfg).transcribe(audio)
@@ -145,13 +161,15 @@ def run(cfg: dict, speaker, transcriber_factory=None, recorder_factory=None, wai
                 print(f"[setup] micrófono {mic['name']}: {exc}")
                 continue
             if text.strip():
-                say(f"Te oí decir: {text}.")
+                say(L(f"I heard you say: {text}.", f"Te oí decir: {text}."))
                 result["input_device"] = mic["index"] if not mic["default"] else None
                 ok = True
                 break
-            say(f"No oí nada con el micrófono {mic['name']}. Probaré otro.")
+            say(L(f"I heard nothing with the microphone {mic['name']}. I will try another.",
+                  f"No oí nada con el micrófono {mic['name']}. Probaré otro."))
         if not ok:
-            say("No conseguí oírte con ningún micrófono. Revisa la conexión y el volumen de entrada.")
+            say(L("I could not hear you with any microphone. Check the connection and the input volume.",
+                  "No conseguí oírte con ningún micrófono. Revisa la conexión y el volumen de entrada."))
 
     # ---- screens ----
     scr = info["screens"]
@@ -177,5 +195,6 @@ def run(cfg: dict, speaker, transcriber_factory=None, recorder_factory=None, wai
     # plugging glasses in later just works.
     cfg_path.write_text(yaml.safe_dump(local, allow_unicode=True, sort_keys=False), encoding="utf-8")
     hardware.save(result)
-    say(hardware.spoken_summary(result) + " Listo. Reinicio para usar la nueva configuración.")
+    say(hardware.spoken_summary(result) + L(" Done. I am restarting to use the new settings.",
+                                             " Listo. Reinicio para usar la nueva configuración."))
     return result

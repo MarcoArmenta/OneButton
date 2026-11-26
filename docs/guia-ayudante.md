@@ -134,14 +134,27 @@ tu escritorio, o crea un servicio de usuario con systemd.
 El archivo es `~/OneButton/local/config.yaml`. Ábrelo con cualquier editor de
 texto. Lo que más se cambia:
 
+- `speak_language`: el idioma en que habla la computadora, `en` (inglés, por
+  defecto) o `es`. No hace falta tocar el archivo: él puede decir "habla en
+  español" o "speak English" y queda guardado. Entiende siempre los dos
+  idiomas (`listen_languages`); cada orden vale en español y en inglés.
 - `silence_timeout`: segundos de silencio antes de que deje de grabar sola.
   Por defecto 90. Si la persona hace pausas largas, súbelo.
-- `tts_voice`: la voz. En Windows 11 lo mejor son las voces naturales:
-  Configuración, Accesibilidad, Narrador, "Agregar voces naturales", y elige
-  Español (México), Dalia o Jorge. OneButton las usa solas en cuanto están
-  instaladas; para forzar una, escribe aquí `Dalia` o `Jorge`. Sin voces
-  naturales usa la voz clásica del sistema (`Microsoft Sabina Desktop`), que
-  se entiende pero suena robótica. En macOS prueba `Paulina` o `Jorge`.
+- `tts_voices`: la voz de cada idioma (`en:` y `es:`). En Windows 11 lo mejor
+  son las voces naturales: Configuración, Accesibilidad, Narrador, "Agregar
+  voces naturales", y elige Inglés (Estados Unidos), Aria o Guy, y Español
+  (México), Dalia o Jorge. OneButton las usa solas en cuanto están
+  instaladas; para forzar una, escribe su nombre en el idioma que toque. Sin
+  voces naturales usa la voz clásica del sistema, que se entiende pero suena
+  robótica. En macOS prueba `Samantha` y `Paulina`. Si no hay ninguna voz
+  instalada del idioma que habla, lo leerá una voz del otro idioma, con
+  acento: instala una.
+- `button_exclusive`: `true` por defecto. Las teclas de los botones (espacio
+  e Intro) sólo las ve OneButton; así un botón nunca pasa de página un PDF ni
+  envía un formulario. Mientras OneButton está abierto, esas dos teclas
+  tampoco escriben en un teclado normal: para escribir tú con el teclado,
+  cierra OneButton o pon `false`. Para moverse por un documento él dice
+  "baja", "baja un poco", "otra vez", "ve hacia arriba".
 - `button_key`: si el botón uno no manda espacio, escribe aquí la tecla.
 - `button2_key`: la tecla del botón dos, normalmente `enter`. Si sólo hay un
   botón, pon `null`.

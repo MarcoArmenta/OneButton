@@ -31,6 +31,7 @@ import shutil
 import subprocess
 
 from .config import LOCAL_DIR
+from .lang import L
 
 CREDENTIALS_FILE = LOCAL_DIR / "credentials.env"
 ACCEPTED = ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")
@@ -96,10 +97,21 @@ def version(claude_bin: str = "claude") -> str:
     return m.group(0) if m else ""
 
 
+LOGIN_NEEDED = ("Claude Code is not signed in", "Claude Code no tiene la sesión iniciada")
+
+
 def login_message(helper: str) -> str:
-    return (f"Claude Code no tiene la sesión iniciada, así que no puedo hacer tareas. "
-            f"Di 'inicia sesión' y te ayudo a entrar desde el navegador. "
-            f"Si no funciona, hay que avisar a {helper}. Mientras tanto sigo escuchando.")
+    return L(f"{LOGIN_NEEDED[0]}, so I cannot do tasks. "
+             f"Say 'sign in' and I will help you in from the browser. "
+             f"If that does not work, {helper} has to be told. Meanwhile I keep listening.",
+             f"{LOGIN_NEEDED[1]}, así que no puedo hacer tareas. "
+             f"Di 'inicia sesión' y te ayudo a entrar desde el navegador. "
+             f"Si no funciona, hay que avisar a {helper}. Mientras tanto sigo escuchando.")
+
+
+def says_login_needed(reply: str) -> bool:
+    """True for a reply that is login_message(), in either language."""
+    return reply.startswith(LOGIN_NEEDED)
 
 
 URL_RE = re.compile(r"https?://[^\s\"'<>]+")

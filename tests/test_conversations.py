@@ -3,6 +3,17 @@ import unittest
 from onebutton import conversations as cv
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class ParseTests(unittest.TestCase):
     def test_new(self):
         for t in ("nueva conversación", "Nueva conversación.", "otra conversación", "abre otra conversación",

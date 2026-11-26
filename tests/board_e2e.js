@@ -44,7 +44,16 @@ async function waitFile(pred) {
   assert.strictEqual(await p.locator(".panel:visible").count(), 3, "wide layout shows every panel");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(0, 0, 0)", "glasses theme is true black");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).fontSize), "30px");
-  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs" }));
+  // the page speaks English unless told otherwise, and answers to panel names in both languages
+  assert.deepStrictEqual(await p.locator("#tabs button").allInnerTexts(), ["Conversation", "Board", "Desk"]);
+  let en = await waitHandled(await post({ type: "voice", text: "board" }));
+  assert.strictEqual(en.panel, "pizarron"); assert.strictEqual(en.handled, true);
+  en = await waitHandled(await post({ type: "voice", text: "escritorio" }));
+  assert.strictEqual(en.panel, "escritorio");
+  en = await waitHandled(await post({ type: "voice", text: "conversation" }));
+  assert.strictEqual(en.panel, "conversacion");
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs", lang: "es" }));
+  assert.deepStrictEqual(await p.locator("#tabs button").allInnerTexts(), ["Conversación", "Pizarrón", "Escritorio"]);
   assert.strictEqual(await p.locator(".panel:visible").count(), 1, "tabs layout shows one panel");
   fs.writeFileSync(path.join(ws, "conversacion.md"), "## 10:00 Tú\n\nhola\n\n## 10:00 Asistente\n\nHola, **José**. $x^2$\n\n");
   await p.waitForTimeout(900);

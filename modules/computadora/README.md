@@ -3,7 +3,9 @@
 Everything a person does with a keyboard and mouse, by voice or by scanning
 with the two buttons. Two layers:
 
-**Direct commands** are parsed locally and run at once, no Claude turn:
+**Direct commands** are parsed locally and run at once, no Claude turn. Each
+works in Spanish and in English ("go to Chrome", "click seven", "type hello",
+"volume up", "what's on the screen"); the table shows the Spanish:
 
 | Say | Does |
 | --- | --- |
@@ -16,7 +18,9 @@ with the two buttons. Two layers:
 | "clic derecho", "doble clic" | at the pointer |
 | "escribe hola Juan" | types into the focused app |
 | "intro", "escape", "copiar", "pegar", "control s", "alt tab" | keys |
-| "baja", "sube diez" | scrolls |
+| "baja", "baja un poco", "baja mucho", "sube", "ve hacia arriba", "scroll down", "go up a little" | scrolls the window in front: half a screen, a little, a whole screen |
+| "otra vez", "again", "más" | repeats the last scroll (within five minutes) |
+| "al principio", "al final", "go to the top", "página siguiente", "next page" | start, end, a page at a time |
 | "sube el volumen", "silencio" | volume |
 | "apaga la computadora", "reinicia", "suspende", "bloquea" | power, after a yes |
 | "qué hay en pantalla" | Claude describes the screen |
