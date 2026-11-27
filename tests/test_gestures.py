@@ -49,6 +49,11 @@ class GestureTests(unittest.TestCase):
         for ges, st in itertools.product((g.SHORT, g.LONG), (g.IDLE, g.RECORDING, g.CONFIRMING, g.THINKING)):
             self.assertEqual(g.interpret((g.NO, ges), st, False), g.A_NONE)
 
+    def test_five_seconds_on_the_talk_button_is_a_note_whatever_is_going_on(self):
+        for st, two in itertools.product((g.IDLE, g.RECORDING, g.CONFIRMING, g.THINKING), (True, False)):
+            self.assertEqual(g.interpret((g.TALK, g.VERY_LONG), st, two), g.A_NOTE, (st, two))
+            self.assertEqual(g.interpret((g.NO, g.VERY_LONG), st, two), g.A_NONE, (st, two))
+
     def test_help_text_mentions_both_buttons(self):
         self.assertIn("Botón dos", g.help_text(True))
         self.assertNotIn("Botón dos", g.help_text(False))

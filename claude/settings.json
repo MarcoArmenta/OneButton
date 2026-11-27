@@ -10,7 +10,9 @@
     "deny": [
       "Bash(rm -rf:*)", "Bash(sudo:*)", "Bash(curl:*)", "Bash(wget:*)",
       "Bash(git push:*)", "Bash(ssh:*)", "Bash(chmod:*)",
-      "Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.claude/**)"
+      "Read(~/.ssh/**)", "Read(~/.aws/**)",
+      "Read(~/.claude/.credentials.json)", "Read(~/.claude/*.json)", "Read(~/.claude/*.jsonl)",
+      "Read(~/.claude/projects/**/*.jsonl)"
     ]
   }
 }

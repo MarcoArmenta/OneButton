@@ -40,6 +40,28 @@ class AgentSettingsTests(unittest.TestCase):
                 self.assertTrue(any(r.startswith("Read(//") and "local" in r for r in deny))
                 self.assertTrue(all("\\" not in r for r in deny), "deny paths must be POSIX-style")
 
+    def test_he_can_have_things_remembered(self):
+        """"From now on ..." has to be written somewhere. Claude Code's memory normally lives under
+        ~/.claude, and the rule that kept the assistant out of that folder kept it out of its own
+        memory too. The memory now lives in the workspace, and what is denied under ~/.claude is
+        the sign-in and the transcripts, not everything."""
+        with tempfile.TemporaryDirectory() as d:
+            local, ws = Path(d) / "local", Path(d) / "workspace"
+            with mock.patch.object(agent_mod, "LOCAL_DIR", local), mock.patch.object(agent_mod, "WORKSPACE_DIR", ws):
+                a = agent_mod.Agent(dict(DEFAULTS, claude_bin="definitely-not-a-real-binary"))
+                data = json.loads(Path(a.settings_file()).read_text(encoding="utf-8"))
+                memory = Path(data["autoMemoryDirectory"])
+                self.assertTrue(memory.is_absolute())
+                self.assertEqual(memory, ws / "memoria")
+                self.assertTrue(memory.is_dir(), "it is there before Claude Code first looks for it")
+                deny = data["permissions"]["deny"]
+                self.assertFalse([r for r in deny if r.endswith(".claude/**)")], "no rule covers the whole folder")
+                self.assertTrue(any(".claude/.credentials.json" in r for r in deny), "the sign-in stays out of reach")
+                self.assertTrue(any(".claude/projects/**/*.jsonl" in r for r in deny), "and so do the transcripts")
+                self.assertTrue(any(r.startswith("Read(//") and ".claude/.credentials.json" in r for r in deny),
+                                "spelled from the root too, the form that is sure to match on Windows")
+                self.assertFalse([r for r in deny if "memoria" in r or "/memory" in r])
+
     def test_web_lookups_are_allowed_in_every_documented_form(self):
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(agent_mod, "LOCAL_DIR", Path(d) / "local"):

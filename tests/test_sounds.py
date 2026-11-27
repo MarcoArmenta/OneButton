@@ -33,13 +33,21 @@ class ToneTests(unittest.TestCase):
         self.assertEqual(len([hz for hz, _ in sounds.STOP if hz]), 1)
 
 
+    def test_the_note_sound_is_unlike_the_other_two(self):
+        note = sounds.tone(sounds.NOTE)
+        self.assertEqual(len([hz for hz, _ in sounds.NOTE if hz]), 3, "three pips: neither two notes nor one")
+        self.assertEqual(len({hz for hz, _ in sounds.NOTE if hz}), 1, "all on one pitch: it neither rises nor falls")
+        self.assertLess(len(note) / sounds.RATE, 0.5)
+
+
 class CuesTests(unittest.TestCase):
     def test_start_and_stop_play_their_own_sound(self):
         played = []
         cues = sounds.Cues({}, play=lambda samples, notes: played.append((len(samples), notes)))
         cues.start()
         cues.stop()
-        self.assertEqual([notes for _, notes in played], [sounds.START, sounds.STOP])
+        cues.note()
+        self.assertEqual([notes for _, notes in played], [sounds.START, sounds.STOP, sounds.NOTE])
         self.assertTrue(all(n > 0 for n, _ in played))
 
     def test_they_can_be_turned_off(self):

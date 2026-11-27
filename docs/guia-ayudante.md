@@ -108,12 +108,18 @@ pulsado un segundo y medio.
   a escuchar en el acto.
 - **Botón uno, mantener:** sí, cuando OneButton ha hecho una pregunta. Si no
   hay pregunta, repite la última respuesta.
+- **Botón uno, seguir manteniendo hasta los cinco segundos:** una nota para
+  Marco, para cuando algo ha ido mal. Suena un tercer sonido, distinto, y
+  OneButton dice que va a tomar una nota; él pulsa, cuenta qué falló y pulsa
+  otra vez. OneButton dice que la nota se envió, o que la guardó si no pudo
+  enviarla. Si dice "cancela", no hay nota.
 - **Botón dos (el izquierdo), pulsar:** no. Cancela lo que esté pasando: una grabación, una
   tarea, una pregunta. También corta la voz, sin ponerse a escuchar.
 - **Botón dos, mantener:** abre el menú de la pantalla: ir a un panel, editar
   una fórmula, leer en voz alta, ayuda.
 
-Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
+Con un solo botón: mantener pulsado cancela, seguir manteniendo hasta los
+cinco segundos es la misma nota para Marco, y el sí se dice con la palabra
 "adelante". Para sólo callar la voz con un botón: pulsar (se calla y
 escucha) y pulsar otra vez (deja de escuchar, y no dice que no oyó nada).
 Enséñale los gestos con calma; el de cancelar da tranquilidad.
@@ -134,6 +140,13 @@ la vez. Si una tarea tarda, dice "nueva conversación" y pregunta otra cosa; "co
 primera, "qué conversaciones hay" las enumera y "cierra esta conversación"
 cierra la actual. Cuando una termina en segundo plano, OneButton lo avisa una
 vez y lee la respuesta al volver a ella.
+
+Él puede enseñarle cómo quiere que trabaje, y lo más probable es que no lo
+sepa, porque nunca ha usado un asistente así. OneButton recuerda lo que le
+pida, ese día y los siguientes, y él puede poner condiciones y cambiar de
+idea. Enséñale un ejemplo el primer día: "recuerda que prefiero respuestas
+cortas", "cuando diga 'resumen', léeme sólo el resumen", y "olvida lo de las
+respuestas cortas" para deshacerlo.
 
 Para que arranque solo al encender la computadora (Windows ya lo hace):
 
@@ -206,6 +219,18 @@ texto. Lo que más se cambia:
 - Para que aprenda el estilo de la persona al escribir: copia sus artículos
   (PDF, TeX o texto) en `OneButton\workspace\estilo\corpus\` y que diga
   "aprende mi estilo". Esos archivos no salen de la computadora.
+
+**Para que las notas le lleguen a Marco.** La nota que él dicta manteniendo
+el botón cinco segundos va a la lista de incidencias ("issues") del proyecto
+en GitHub. Para enviarla hace falta una llave: un token de GitHub en
+`OneButton\local\credentials.env`, en una línea `ONEBUTTON_GITHUB_TOKEN=...`.
+Tiene que ser un token personal de acceso "fine-grained", limitado al
+repositorio OneButton y con el permiso "Issues: Read and write", nada más;
+pídeselo a quien mantiene OneButton. Sin el token las notas no se pierden: se
+quedan en `OneButton\local\reports` y salen con la siguiente nota, cuando el
+token ya esté puesto. Esa lista es pública: dile que en la nota no dicte nada
+privado. El nombre que se dice en voz alta ("una nota para Marco") es
+`maintainer_name`, y `note_hold: 0` quita el gesto.
 
 Después de cambiar algo, reinicia OneButton.
 

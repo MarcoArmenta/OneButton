@@ -13,6 +13,8 @@ press_min_hold: 0            # 0: every press counts, however short. Set it (0.0
 press_bounce: 0.15           # A release and re-press within this window is one hold continuing.
 press_refractory: 0.35       # After an event, presses in this window are ignored.
 long_hold: 1.5               # Held this long = long press. Lower it if holding is hard.
+note_hold: 5                 # Still held this long = a note about something that went wrong, sent to the maintainer. 0 turns it off.
+maintainer_name: "Marco"     # Who those notes are for, as said aloud ("A note for Marco"). Sending needs a key: see docs/security.md.
 button_source: auto          # auto, global (system-wide capture), terminal (terminal must stay focused)
 silence_timeout: 90          # Seconds of silence before a recording stops on its own.
 max_recording: 600           # Hard cap in seconds for a single utterance.

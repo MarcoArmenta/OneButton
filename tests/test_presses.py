@@ -1,6 +1,6 @@
 import unittest
 
-from onebutton.presses import LONG, SHORT, PressFilter
+from onebutton.presses import LONG, SHORT, VERY_LONG, PressFilter
 
 
 def run(f, script):
@@ -47,6 +47,23 @@ class PressFilterTests(unittest.TestCase):
 
     def test_two_deliberate_presses(self):
         self.assertEqual(run(PressFilter(), [(0, "down"), (0.2, "up"), (1.0, "down"), (1.2, "up")]), [SHORT, SHORT])
+
+    def test_held_five_seconds_is_a_third_gesture_after_the_long_one(self):
+        self.assertEqual(run(PressFilter(), [(0, "down"), (6.0, "up")]), [LONG, VERY_LONG])
+        self.assertEqual(run(PressFilter(), [(0, "down"), (4.0, "up")]), [LONG], "let go before five seconds")
+        f = PressFilter()
+        f.down(0.0)
+        f.tick(1.5)
+        self.assertEqual([k for k, _ in f.tick(4.99)], [])
+        self.assertEqual([k for k, _ in f.tick(5.0)], [VERY_LONG], "at the fifth second, without waiting for the release")
+
+    def test_a_hand_that_loses_contact_for_a_moment_still_reaches_five_seconds(self):
+        script = [(0, "down"), (2.0, "up"), (2.06, "down"), (6.0, "up")]
+        self.assertEqual(run(PressFilter(), script), [LONG, VERY_LONG])
+
+    def test_the_five_second_hold_can_be_turned_off_or_moved(self):
+        self.assertEqual(run(PressFilter(note_hold=0), [(0, "down"), (9.0, "up")]), [LONG])
+        self.assertEqual(run(PressFilter(note_hold=3.0), [(0, "down"), (3.5, "up")]), [LONG, VERY_LONG])
 
     def test_configurable(self):
         f = PressFilter(min_hold=0.2, long_hold=1.0)

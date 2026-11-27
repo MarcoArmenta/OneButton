@@ -32,6 +32,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -40,9 +41,9 @@ import time
 from pathlib import Path
 
 from . import __version__, auth, commands, conversations, desktop_commands, hardware, login, updater
-from .config import LOCAL_DIR, WORKSPACE_DIR, load, save_local
-from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
-                       CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
+from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR, load, save_local
+from .gestures import (A_CANCEL, A_HELP, A_NO, A_NONE, A_NOTE, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
+                       CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, VERY_LONG, help_text, interpret)
 from .lang import L, SUPPORTED, language, set_language
 from .lang import helper as helper_of
 from .lang import name as language_name
@@ -51,6 +52,7 @@ from .lang import name as language_name
 DICTATION_SAFE = ("scroll", "scroll_again", "volume")
 SCROLL_AGAIN_WINDOW = 300.0     # seconds during which "otra vez" still means the last scroll
 BARGE_SECONDS = 20.0            # after a press cut the voice to talk: how long nothing else is said while he has not spoken
+NOTE_WAIT_SECONDS = 45.0        # after the note sound: how long it waits for him to press and say what went wrong
 EXIT_WORDS = ("salir", "sal", "listo", "terminar", "cerrar", "exit", "done", "close", "finish", "quit", "leave")
 CANCEL_WORDS = ("cancela", "cancelar", "salir", "quita", "no", "cancel", "exit", "stop", "never mind")
 HERE_WORDS = ("aqui", "pulsa", "clic", "click", "ahi", "here", "there", "press", "that one")
@@ -66,6 +68,7 @@ class Loop:
     barged = False                  # he pressed to talk while it was speaking, and has not been recorded yet
     barged_at = 0.0
     last_recording_barged = False   # the last recording began that way
+    note_requested = False          # he held the button five seconds: take a note for the maintainer when next free
 
     def __init__(self, cfg: dict, dry_run: bool = False):
         from .rules import install as install_rules
@@ -106,7 +109,8 @@ class Loop:
         self.button = Button({"talk": cfg["button_key"], "no": cfg.get("button2_key")},
                              cfg.get("button_source", "auto"),
                              filters={"min_hold": float(cfg["press_min_hold"]), "bounce": float(cfg["press_bounce"]),
-                                      "refractory": float(cfg["press_refractory"]), "long_hold": float(cfg["long_hold"])},
+                                      "refractory": float(cfg["press_refractory"]), "long_hold": float(cfg["long_hold"]),
+                                      "note_hold": float(cfg.get("note_hold", 5.0))},
                              exclusive=bool(cfg.get("button_exclusive", True)))
         from .sounds import Cues
 
@@ -223,17 +227,33 @@ class Loop:
         if self.barging():
             print(f"\n🔇 {text}\n", flush=True)   # he has the floor: it stays on the screen, unsaid
             return
-        self.button.clear()
+        self.drop_presses()
         finished = self.speaker.say(text, until=lambda: not self.button.events.empty(), clean=clean)
         if not finished:
             ev = self.button.poll()
-            self.button.clear()
+            self.drop_presses()
             if ev == (TALK, SHORT):
                 self.barged, self.barged_at = True, time.monotonic()
                 self.button.events.put(ev)
                 self.log("BOTÓN", "una pulsación cortó la voz y empieza a escuchar")
+            elif ev == (TALK, VERY_LONG):
+                self.note_requested = True
+                self.log("BOTÓN", "cinco segundos: cortó la voz para dejar una nota")
             else:
                 self.log("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")
+
+    def drop_presses(self) -> None:
+        """Forget presses made before now. A five-second hold among them still asks for a note."""
+        poll = getattr(self.button, "poll", None)
+        if poll is None:
+            self.button.clear()
+            return
+        while True:
+            ev = poll()
+            if ev is None:
+                return
+            if ev == (TALK, VERY_LONG):
+                self.note_requested = True
 
     def barging(self) -> bool:
         """True from a press that cut the voice to talk until the recording it asked for starts.
@@ -245,7 +265,7 @@ class Loop:
     def forget_presses(self) -> None:
         """Drop presses made before now, except the one that is waiting to start his recording."""
         if not self.barging():
-            self.button.clear()
+            self.drop_presses()
 
     def heard_nothing(self) -> None:
         """A recording with no words in it. If he had pressed only to silence the voice, say nothing."""
@@ -296,6 +316,11 @@ class Loop:
         act = interpret(ev, state, self.two_buttons)
         # The same press means different things at different moments; the log says which it was.
         self.log("BOTÓN", f"{ev[0]} {ev[1]} ({state}) -> {act}")
+        if act == A_NOTE:
+            # The note is taken by the loop as soon as it is free (listen_once, wait_for). Here it only
+            # ends what a five-second hold cannot have been meant to continue.
+            self.note_requested = True
+            return A_CANCEL if state in (RECORDING, CONFIRMING) else A_NONE
         return act
 
     def listen_once(self) -> str | None:
@@ -306,6 +331,9 @@ class Loop:
             except EOFError:
                 raise KeyboardInterrupt
         while True:
+            if self.note_requested:
+                self.take_note()
+                continue
             act = self.action(IDLE, 1.0)
             if act is None:
                 self.announce_finished()
@@ -355,6 +383,71 @@ class Loop:
         print(f"[tú] {text}", flush=True)
         self.log("TÚ", text)
         return text
+
+    # ---- a note for whoever maintains OneButton ---------------------------
+    def take_note(self) -> None:
+        """He held the button five seconds. A sound of its own, then what he says next is written
+        down with the program's version and the last presses, and sent to the maintainer."""
+        self.note_requested = False
+        name = self.cfg.get("maintainer_name") or "Marco"
+        if self.cues:
+            self.cues.note()
+        self.say(L(f"A note for {name}. Press the button, tell me what went wrong, and press again.",
+                   f"Una nota para {name}. Pulsa el botón, cuenta qué falló y pulsa otra vez."))
+        heard, deadline = None, time.monotonic() + NOTE_WAIT_SECONDS
+        while time.monotonic() < deadline:
+            act = self.action(IDLE, 1.0)
+            if act == A_TALK:
+                heard = self.record_and_transcribe()
+                break
+            if act in (A_HELP, A_REPEAT):   # a hold: he changed his mind
+                break
+        self.note_requested = False
+        cancel = {commands.normalize(w) for w in self.cfg.get("cancel_words") or []}
+        if not heard or not commands.normalize(heard) or commands.normalize(heard) in cancel:
+            self.say(L("All right, no note.", "De acuerdo, sin nota."))
+            return
+        try:
+            result = self.deliver_note(note=heard.strip(), info=self.note_info(), log_text=self.log_tail(),
+                                       repo_url=self.cfg.get("repo_url", ""))
+        except Exception as exc:   # a note must never take the loop down
+            result = {"url": None, "error": str(exc)}
+        if result.get("url"):
+            self.log("NOTA", f"enviada: {result['url']}")
+            self.say(L(f"Sent to {name}.", f"Enviada a {name}."))
+        else:
+            self.log("NOTA", f"guardada sin enviar ({result.get('error')}): {result.get('saved')}")
+            self.say(L(f"I saved the note. {name} will get it as soon as it can be sent.",
+                       f"Guardé la nota. {name} la recibirá en cuanto se pueda enviar."))
+
+    def deliver_note(self, **kw) -> dict:
+        from . import report
+        return report.deliver(**kw)
+
+    def note_info(self) -> dict:
+        """What the maintainer needs to place a note: when, which version, which system. Nothing personal."""
+        version = __version__
+        try:
+            commit = subprocess.run(["git", "-C", str(REPO_DIR), "rev-parse", "--short", "HEAD"],
+                                    capture_output=True, text=True, timeout=5).stdout.strip()
+            version += f" ({commit})" if commit else ""
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return {"when": dt.datetime.now().isoformat(timespec="seconds"), "version": version,
+                "system": platform.platform(), "speaks": language(),
+                "buttons": "two" if self.two_buttons else "one"}
+
+    def log_tail(self, size: int = 64_000) -> str:
+        """The end of local/session.log. report.py keeps only the lines with no words of his in them."""
+        if not self.log_path:
+            return ""
+        try:
+            with self.log_path.open("rb") as fh:
+                fh.seek(0, os.SEEK_END)
+                fh.seek(max(0, fh.tell() - size))
+                return fh.read().decode("utf-8", errors="replace")
+        except OSError:
+            return ""
 
     def confirm(self, question: str) -> bool:
         """Ask aloud; yes is a held talk button (two-button setups) or a spoken confirm word."""
@@ -1013,6 +1106,8 @@ class Loop:
         self.forget_presses()
         next_progress = time.monotonic() + self.progress_interval
         while conv.state == conversations.WORKING:
+            if self.note_requested:
+                self.take_note()   # the task goes on meanwhile
             act = self.action(THINKING, 0.2)
             if act == A_CANCEL:
                 self.agent.cancel(conv.session_id)

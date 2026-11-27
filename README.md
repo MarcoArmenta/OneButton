@@ -170,7 +170,8 @@ The settings are in `OneButton/local/config.yaml`; see
 
 ## Quick start on one page
 
-Print it and leave it next to the user: the buttons, and what to say.
+Print it and leave it next to the user: the button, and what to say. It is
+written for a single button, with one line for two.
 
 **[Quick start, in English (PDF)](docs/quick-start.pdf)** ·
 **[Inicio rápido, en español (PDF)](docs/inicio-rapido.pdf)**
@@ -224,8 +225,16 @@ hold of about 1.5 seconds.
 | Press | Talk. Press to start (a short rising two-note sound: it is listening), press again to stop (one lower note). While it is speaking, a press stops the voice and starts listening at once. | No. Cancel a recording, a task, or a question. Also stops speech, without listening. |
 | Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the screen's ring menu: panels, formula editing, read aloud, help. |
 
+Button 1 has a third gesture: kept held for 5 seconds, it is a note for Marco
+about something that went wrong. A third, different sound plays and it says
+it will take a note; he presses, says what went wrong, and presses again. It
+says the note was sent, or saved when it could not be sent. **"Cancel"** /
+**"cancela"** drops it. The name comes from `maintainer_name` in the config,
+and `note_hold: 0` turns the gesture off.
+
 With a single button, a hold cancels (or explains the controls when idle),
-and yes is the spoken word "adelante". To just silence it with a single
+keeping it held for 5 seconds is the same note for Marco, and yes is the
+spoken word "adelante". To just silence it with a single
 button: press (it stops and listens), press again (it stops listening;
 nothing is said about hearing nothing).
 
@@ -239,6 +248,12 @@ nothing is said about hearing nothing).
   window in front.
 - **"Speak Spanish"** / **"habla en inglés"** changes the language it speaks,
   now and at every start. It keeps understanding both.
+- **He can teach it how he wants it to work.** It remembers what he asks, in
+  this conversation and in later ones, and he can set conditions and change
+  his mind: **"remember that I prefer short answers"** / **"recuerda que
+  prefiero respuestas cortas"**, **"when I say 'summary', read me only the
+  abstract"** / **"cuando diga 'resumen', léeme sólo el resumen"**. **"Forget
+  that"** / **"olvida eso"** takes one back.
 - Pauses while speaking are fine, up to 90 seconds by default.
 - Tremor is filtered: a double tap and a hold that loses contact for a moment
   are read as what was meant. No press is too short to count, unless a minimum
@@ -294,6 +309,11 @@ nothing is said about hearing nothing).
 - What was said and answered is appended to `local/session.log` so a helper
   can see what went wrong. It never leaves the machine; turn it off with
   `log_transcripts: false`.
+- A note he dictates for Marco (button held 5 seconds) is the one thing he
+  sends on purpose. It goes to the project's issue tracker on GitHub, which
+  is public, with the program's version and the last button presses and
+  recording lengths, and never with what he said to the computer or what it
+  answered. Without a key for sending, notes are kept in `local/reports/`.
 - Replies are cleaned before being spoken: code, formulas, links and tables
   stay on screen and are announced, not read character by character.
 - Personal things (email settings, contacts, notes, keys) live in `local/`,

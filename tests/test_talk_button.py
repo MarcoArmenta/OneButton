@@ -140,5 +140,83 @@ class TalkButtonTests(unittest.TestCase):
         self.assertEqual(lp.speaker.said, ["First.", "Much later."], "it must never stay mute")
 
 
+HOLD5 = ("talk", "very_long")
+
+
+class NoteForTheMaintainerTests(unittest.TestCase):
+    """Holding the button five seconds: a different sound, and what he says next is a note for Marco."""
+
+    def setUp(self):
+        lang.set_language("en")
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lp = lp = loop_with_a_button(Path(self.tmp.name))
+        lp.cues.note = lambda: lp.order.append("note sound")
+        lp.heard = "the page did not scroll when I said baja"
+        self.delivered = []
+        self.outcome = {"saved": Path("x.md"), "url": "https://github.com/o/r/issues/7", "error": None, "sent": 1}
+        lp.deliver_note = lambda **kw: self.delivered.append(kw) or self.outcome
+
+    def hold_then_talk(self):
+        lp = self.lp
+        lp.button.events.put(HOLD5)
+        lp.action(loop_mod.IDLE, 0.01)                    # the loop reads the five-second hold
+        self.assertTrue(lp.note_requested)
+        lp.speaker.pressed = TALK                         # he presses to say it as soon as he has heard enough
+        lp.take_note()
+
+    def test_the_whole_gesture(self):
+        lp = self.lp
+        self.hold_then_talk()
+        self.assertEqual(lp.order[:3], ["note sound", "listening sound", "recording"])
+        self.assertIn("A note for Marco", lp.speaker.said[0])
+        self.assertEqual(self.delivered[0]["note"], "the page did not scroll when I said baja")
+        self.assertEqual(self.delivered[0]["repo_url"], lp.cfg["repo_url"])
+        self.assertEqual(set(self.delivered[0]["info"]) >= {"when", "version", "system", "speaks", "buttons"}, True)
+        self.assertEqual(lp.speaker.said[-1], "Sent to Marco.")
+        self.assertFalse(lp.note_requested)
+
+    def test_when_it_cannot_be_sent_it_is_kept_and_he_is_told(self):
+        self.outcome = {"saved": Path("x.md"), "url": None, "error": "no key", "sent": 0}
+        self.hold_then_talk()
+        self.assertEqual(self.lp.speaker.said[-1], "I saved the note. Marco will get it as soon as it can be sent.")
+
+    def test_saying_cancel_drops_it(self):
+        self.lp.heard = "Cancel."
+        self.hold_then_talk()
+        self.assertEqual(self.delivered, [])
+        self.assertEqual(self.lp.speaker.said[-1], "All right, no note.")
+
+    def test_saying_nothing_drops_it(self):
+        self.lp.heard = ""
+        self.hold_then_talk()
+        self.assertEqual(self.delivered, [])
+
+    def test_it_uses_the_name_in_the_config(self):
+        self.lp.cfg["maintainer_name"] = "Ana"
+        self.hold_then_talk()
+        self.assertIn("A note for Ana", self.lp.speaker.said[0])
+        self.assertEqual(self.lp.speaker.said[-1], "Sent to Ana.")
+
+    def test_five_seconds_during_a_recording_ends_it_and_the_note_comes_next(self):
+        lp = self.lp
+        lp.button.events.put(HOLD5)
+        self.assertEqual(lp.action(loop_mod.RECORDING, 0.01), loop_mod.A_CANCEL)
+        self.assertTrue(lp.note_requested)
+
+    def test_the_hold_is_not_lost_when_it_arrives_while_the_computer_is_speaking(self):
+        lp = self.lp
+        lp.speaker.pressed = HOLD5                      # held through the spoken help, which starts at two seconds
+        lp.say("Press once to talk and once more to finish.")
+        self.assertTrue(lp.note_requested)
+        self.assertFalse(lp.barged, "it is not a press to talk")
+
+    def test_nor_when_it_was_waiting_before_the_computer_spoke(self):
+        lp = self.lp
+        lp.button.events.put(HOLD5)
+        lp.say("Something.")                            # say() drops presses made before it starts
+        self.assertTrue(lp.note_requested)
+
+
 if __name__ == "__main__":
     unittest.main()

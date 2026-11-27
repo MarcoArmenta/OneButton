@@ -17,13 +17,13 @@ from __future__ import annotations
 from .lang import L
 
 TALK, NO = "talk", "no"
-SHORT, LONG = "short", "long"
+SHORT, LONG, VERY_LONG = "short", "long", "very_long"   # very long: still held at five seconds
 
 IDLE, RECORDING, CONFIRMING, THINKING = "idle", "recording", "confirming", "thinking"
 
 # actions
-A_TALK, A_STOP, A_CANCEL, A_YES, A_NO, A_REPEAT, A_HELP, A_REASSURE, A_NONE = (
-    "talk", "stop", "cancel", "yes", "no", "repeat", "help", "reassure", "none",
+A_TALK, A_STOP, A_CANCEL, A_YES, A_NO, A_REPEAT, A_HELP, A_REASSURE, A_NONE, A_NOTE = (
+    "talk", "stop", "cancel", "yes", "no", "repeat", "help", "reassure", "none", "note",
 )
 
 Event = tuple[str, str]  # (button, gesture)
@@ -31,6 +31,9 @@ Event = tuple[str, str]  # (button, gesture)
 
 def interpret(event: Event, state: str, two_buttons: bool) -> str:
     button, gesture = event
+    if gesture == VERY_LONG:
+        # Held five seconds: a note for whoever maintains OneButton, whatever was going on.
+        return A_NOTE if button == TALK else A_NONE
     if button == NO:
         if not two_buttons:
             return A_NONE
@@ -64,6 +67,7 @@ def help_text(two_buttons: bool) -> str:
         return L(
             "Button one: press to talk and press again to finish. A rising sound means I am listening, "
             "a low one that I stopped. Hold it to say yes when I ask, or to hear the last reply again. "
+            "Keep holding it five seconds to leave a note about something that went wrong. "
             "Button two: press to cancel or say no. Hold it to hear this help. "
             "To move a page, say 'scroll down', 'a little more', 'again' or 'go up'. "
             "Say 'new conversation' to start something else while a task goes on, and 'conversation one' to go back. "
@@ -71,18 +75,20 @@ def help_text(two_buttons: bool) -> str:
             "Botón uno: pulsa para hablar y otra vez para terminar. Un sonido que sube quiere decir que te "
             "escucho; uno grave, que dejé de escuchar. Mantenlo pulsado para decir sí "
             "cuando te pregunte, o para repetir la última respuesta. "
+            "Mantenlo cinco segundos para dejar una nota sobre algo que falló. "
             "Botón dos: pulsa para cancelar o decir no. Mantenlo pulsado para oír esta ayuda. "
             "Para mover una página di 'baja', 'baja un poco', 'otra vez' o 've hacia arriba'. "
             "Di 'nueva conversación' para empezar otra cosa mientras una tarea sigue, y 'conversación uno' para volver. "
             "Di 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
     return L(
         "Press once to talk and once more to finish. A rising sound means I am listening, a low one that "
-        "I stopped. Hold to cancel. "
+        "I stopped. Hold to cancel. Keep holding five seconds to leave a note about something that went wrong. "
         "Say 'repeat' to hear the last reply, 'scroll down' or 'go up' to move a page, 'new conversation' to start "
         "something else while a task goes on, 'update' to look for improvements, or 'undo' to go back to the "
         "previous version.",
         "Pulsa una vez para hablar y otra vez para terminar. Un sonido que sube quiere decir que te escucho; "
         "uno grave, que dejé de escuchar. Mantén pulsado para cancelar. "
+        "Mantén cinco segundos para dejar una nota sobre algo que falló. "
         "Di 'repite' para oír la última respuesta, 'baja' o 've hacia arriba' para mover una página, "
         "'nueva conversación' para empezar otra cosa mientras una tarea sigue, 'actualiza' para buscar mejoras, "
         "o 'deshacer' para volver a la versión anterior.")
