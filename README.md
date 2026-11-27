@@ -238,9 +238,9 @@ and yes is the spoken word "adelante".
 - **"Speak Spanish"** / **"habla en inglés"** changes the language it speaks,
   now and at every start. It keeps understanding both.
 - Pauses while speaking are fine, up to 90 seconds by default.
-- Tremor is filtered: taps too short to be deliberate, double taps, and a
-  hold that loses contact for a moment are all read as what was meant. The
-  thresholds are in the config.
+- Tremor is filtered: a double tap and a hold that loses contact for a moment
+  are read as what was meant. No press is too short to count, unless a minimum
+  length is set (`press_min_hold`). The thresholds are in the config.
 - A soft voice is normalised before recognition, and the recogniser can be
   primed with the words he uses most.
 - During a long task it says "still on it" now and then. A press of button 1

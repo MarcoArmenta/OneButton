@@ -29,8 +29,14 @@ class PressFilterTests(unittest.TestCase):
         f.up(3.0)
         self.assertEqual(run(f, [(3.0, "up")]), [])
 
-    def test_tremor_tap_ignored(self):
-        self.assertEqual(run(PressFilter(), [(0, "down"), (0.03, "up")]), [])
+    def test_a_very_short_press_counts(self):
+        # No minimum length unless one is asked for: a quick tap is a press like any other.
+        self.assertEqual(run(PressFilter(), [(0, "down"), (0.03, "up")]), [SHORT])
+        self.assertEqual(run(PressFilter(), [(0, "down"), (0.005, "up")]), [SHORT])
+
+    def test_a_minimum_length_can_still_be_asked_for(self):
+        self.assertEqual(run(PressFilter(min_hold=0.06), [(0, "down"), (0.03, "up")]), [])
+        self.assertEqual(run(PressFilter(min_hold=0.06), [(0, "down"), (0.08, "up")]), [SHORT])
 
     def test_bounce_inside_a_hold_is_one_long(self):
         script = [(0, "down"), (0.5, "up"), (0.55, "down"), (1.0, "up"), (1.08, "down"), (2.0, "up")]
@@ -46,6 +52,21 @@ class PressFilterTests(unittest.TestCase):
         f = PressFilter(min_hold=0.2, long_hold=1.0)
         self.assertEqual(run(f, [(0, "down"), (0.15, "up")]), [])
         self.assertEqual(run(PressFilter(min_hold=0.2, long_hold=1.0), [(0, "down"), (1.1, "up")]), [LONG])
+
+
+class DefaultsTests(unittest.TestCase):
+    """Out of the box no press is too short to count; the setting stays for whoever needs it."""
+
+    def test_no_minimum_length_by_default(self):
+        import yaml
+        from pathlib import Path
+
+        from onebutton import config
+
+        self.assertEqual(config.DEFAULTS["press_min_hold"], 0)
+        example = yaml.safe_load((Path(__file__).resolve().parent.parent / "config.example.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(example["press_min_hold"], 0, "the installer copies this file into local/config.yaml")
+        self.assertEqual(PressFilter().min_hold, 0)
 
 
 if __name__ == "__main__":

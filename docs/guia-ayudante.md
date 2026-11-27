@@ -209,9 +209,10 @@ OneButton lo tiene en cuenta, y hay cosas que ayudan desde fuera:
 
 - **Botones.** Fíjalos a algo que no se mueva (una tabla sobre la cama, un
   brazo articulado), no sueltos sobre el colchón. Que sean grandes y de
-  recorrido corto. Una pulsación muy breve o un doble toque se ignoran; si
-  aun así se cuelan pulsaciones, sube `press_refractory` a `0.6` y
-  `press_min_hold` a `0.12` en la configuración. Si mantener pulsado un
+  recorrido corto. Un doble toque se ignora, y toda pulsación cuenta por
+  breve que sea. Si se cuelan pulsaciones sin querer, sube `press_refractory`
+  a `0.6` y pon `press_min_hold` a `0.12` en la configuración (las más breves
+  que eso dejan de contar). Si mantener pulsado un
   segundo y medio le cuesta, baja `long_hold` a `1.0`.
 - **Micrófono.** La voz puede ser baja. Un micrófono de solapa o uno de
   brazo a un palmo de la boca funciona mucho mejor que uno sobre la mesa.

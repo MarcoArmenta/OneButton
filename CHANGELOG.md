@@ -25,7 +25,8 @@ written exactly as you say it, with nothing added or changed; say "review" and
 the assistant proposes corrections and additions one at a time, and you decide
 each one. There is a one-page quick start to print, in English and Spanish.
 Config: `speak_language` and `listen_languages` replace `language`;
-`tts_voices` and `whisper_prompts` are per language; `button_exclusive` is new.
+`tts_voices` and `whisper_prompts` are per language; `button_exclusive` is new;
+`press_min_hold` is 0 by default, so a quick press counts.
 
 Earlier, also unreleased:
 
