@@ -3,6 +3,179 @@
 Voice-first computing for people who cannot use a keyboard or mouse. One or
 two big buttons, a microphone, a screen, and Claude Code doing the work.
 
+## Install
+
+This part is for the helper: whoever sets the computer up, once. After it the
+user needs nobody for daily use, and updates arrive by voice. The hardware is
+listed under [What you need](#what-you-need). The same steps in Spanish,
+written for non-technical helpers, are in
+[docs/guia-ayudante.md](docs/guia-ayudante.md).
+
+Do every step in the account of the computer (Windows, macOS or Linux) that
+the user will use every day. Claude Code's sign-in and OneButton's settings
+belong to that account.
+
+### 1. Install what OneButton needs
+
+**Windows 10 or 11**
+
+- [Git for Windows](https://git-scm.com/download/win).
+- Python 3.10 or newer from [python.org](https://www.python.org/downloads/),
+  ticking **"Add python.exe to PATH"** in its installer. On a fresh Windows 11
+  typing `python` opens the Microsoft Store instead of failing; that is not
+  Python, and the OneButton installer will say so.
+- Edge (already there) or Chrome, so the screen can open full screen.
+- The "OpenSSH Client" optional feature, which signed updates are checked
+  with. Recent Windows has it; if the installer warns that `ssh-keygen` is
+  missing, turn it on in Settings, Apps, Optional features.
+
+**macOS**
+
+- Git: `xcode-select --install`.
+- Python 3.10 or newer: check with `python3 --version`. If it is older,
+  install a newer one from [python.org](https://www.python.org/downloads/).
+- Chrome or Edge, so the screen can open full screen.
+
+**Linux (Debian, Ubuntu)**
+
+```bash
+sudo apt install git python3 python3-venv libportaudio2 espeak-ng
+```
+
+Under Wayland the buttons are read from the terminal: set
+`button_source: terminal` in the configuration after installing.
+
+### 2. Install Claude Code and sign in
+
+OneButton does its work through [Claude Code](https://code.claude.com/docs/en/setup),
+so Claude Code has to be installed **and signed in** before OneButton is
+installed. It needs a paid Claude plan (Pro, Max, Team or Enterprise) or an
+Anthropic Console account; the free plan does not include Claude Code.
+
+Windows, in PowerShell:
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+macOS or Linux:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Close the terminal, open a new one, and sign in:
+
+1. Type `claude` and press Enter. The first time, it asks you to sign in: a
+   browser page opens, you sign in with the account that has the plan, and
+   you click **Authorize**. Back in the terminal, Claude Code is ready.
+2. If Claude Code opens but is not signed in, or is signed in to the wrong
+   account, type **`/login`** at its prompt and press Enter. It runs the same
+   browser sign-in again.
+3. Type `/exit` to leave Claude Code.
+4. Check it from the terminal:
+
+   ```
+   claude auth status
+   ```
+
+   It must show `"loggedIn": true`. If it shows `false`, open `claude` again
+   and run `/login`.
+
+### 3. Run the OneButton installer
+
+One command, run once. It is safe to run again.
+
+Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.ps1 | iex
+```
+
+macOS or Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.sh | bash
+```
+
+It takes a few minutes, most of it downloads. What it does:
+
+- puts OneButton in a folder called `OneButton` in the home folder
+  (`%USERPROFILE%\OneButton` on Windows, `~/OneButton` elsewhere; set
+  `ONEBUTTON_HOME` first to use another place);
+- creates OneButton's own Python environment there and installs its libraries;
+- downloads the model that understands speech and, if the computer has no
+  voice for English or for Spanish, a voice to speak with;
+- creates `local/`, where the settings, the credentials and the update keys
+  live and which never leaves the computer, and `workspace/`, where the
+  user's documents go;
+- checks that Claude Code is signed in;
+- installs the newest signed release, or stays on `main` while there is none;
+- on Windows, puts an **OneButton** shortcut on the Desktop and in the Startup
+  folder, so it starts with the computer.
+
+It ends by saying aloud "OneButton installed correctly."
+
+The installer writes in Spanish. What matters:
+
+| It prints | Meaning |
+| --- | --- |
+| `Sesión iniciada.` | Claude Code is signed in. Nothing to do. |
+| `AVISO: Claude Code no tiene sesión iniciada.` | Claude Code is not signed in. Open `claude`, run `/login`, and check with `claude auth status`. There is no need to run the installer again. |
+| A line starting with `ERROR:` | Something from steps 1 and 2 is missing, and the line names it: Git, Python, Claude Code or, on Linux, `libportaudio2`. Install it, open a **new** terminal, and run the installer again. |
+| `AVISO: falta ssh-keygen` | Windows only: turn on the "OpenSSH Client" optional feature. Until then updates by voice do not work. |
+| `AVISO: local/allowed_signers no tiene una llave real.` | Expected for now: no signed release has been published yet, so OneButton runs the code on `main` and "update" finds nothing to install. |
+
+### 4. Keep Claude Code signed in
+
+The browser sign-in lapses now and then. So that the user never depends on
+someone clicking "Authorize", leave a long-lived token once: with Claude Code
+signed in, run
+
+```
+claude setup-token
+```
+
+copy the long token it prints, open `OneButton/local/credentials.env` in a
+text editor, and put it on the `CLAUDE_CODE_OAUTH_TOKEN=` line, removing the
+`#` in front. Details and the alternatives are in
+[docs/login.md](docs/login.md).
+
+If OneButton ever says "Claude Code is not signed in", the user can say
+**"sign in"** / **"inicia sesión"** and do it by voice, or a helper can open
+`claude` and run `/login`.
+
+### 5. Allow the microphone and the buttons
+
+- **Windows:** Settings, Privacy & security, Microphone: turn on "Let desktop
+  apps access your microphone".
+- **macOS:** the first start asks for the Microphone and for Input Monitoring
+  for the Terminal. Allow both in System Settings, Privacy & Security.
+
+### 6. Start it
+
+- **Windows:** double-click **OneButton** on the Desktop. From then on it
+  starts with the computer.
+- **macOS or Linux:** `~/OneButton/bin/onebutton`. To start it with the
+  computer, add that command to the login items; see the helper guide.
+
+The first time, it asks aloud for the buttons and checks the microphone and
+the screens (see [First run](#first-run)). Then it says "OneButton is ready.
+Press the button and speak." Try it: press the button, say "what time is it",
+press again.
+
+The settings are in `OneButton/local/config.yaml`; see
+[Configuration](#configuration).
+
+## Quick start on one page
+
+Print it and leave it next to the user: the buttons, and what to say.
+
+**[Quick start, in English (PDF)](docs/quick-start.pdf)** ·
+**[Inicio rápido, en español (PDF)](docs/inicio-rapido.pdf)**
+
+## What it does
+
 Press the button, speak, press again. The words go to Claude Code, which
 writes, computes, reads email, searches, and answers aloud. Everything he
 needs to see is on one local page with panels: the conversation, a maths
@@ -12,9 +185,6 @@ mistakes are undone by saying "undo".
 It speaks English and understands English and Spanish at once: every command
 below works in both ("scroll down" or "baja", "new conversation" or "nueva
 conversación"). Say "habla en español" and it speaks Spanish from then on.
-
-**New user?** Print the one-page quick start:
-[English](docs/quick-start.pdf) · [Español](docs/inicio-rapido.pdf).
 
 Built by Marco Armenta for a friend in Mexico City who lives with very limited
 mobility. Everything here is designed so that the person helping at home never
@@ -33,30 +203,6 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 | Screen | One or two monitors, or USB-C display glasses (Xreal, Viture and similar). Looked at on every start: with two monitors the page opens full screen on the second and the terminal stays on the first; a wide virtual display switches to the `glasses` preset (true black, large type, all panels side by side). Full screen without a keyboard needs Edge or Chrome. |
 | Windows Hello infrared camera | Unlocking stays as secure as a password: only his face, or the password typed by someone he trusts. The computer keeps locking when idle. OneButton cannot type into the lock screen, by design. See the helper guide. |
 | Claude Code subscription | Signed in once by the helper, then kept signed in with a long-lived token so nobody has to click "Authorize" again. See [docs/login.md](docs/login.md). |
-
-## Install (for the helper)
-
-One command, run once. It needs git, Python 3.10+, and Claude Code already
-installed and logged in.
-
-Windows, in PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.ps1 | iex
-```
-
-macOS or Linux:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.sh | bash
-```
-
-The Windows installer puts an "OneButton" shortcut on the Desktop and in the
-Startup folder, so it starts with the computer. On macOS and Linux start it
-with `~/OneButton/bin/onebutton`.
-
-A full step-by-step guide in Spanish, written for non-technical helpers, is in
-[docs/guia-ayudante.md](docs/guia-ayudante.md).
 
 ## First run
 
