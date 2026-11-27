@@ -25,7 +25,7 @@ import subprocess
 import threading
 import time
 import uuid
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 from .auth import login_message, subprocess_env
 from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR
@@ -277,11 +277,28 @@ class Agent:
     _settings_file = settings_file  # older name, kept for callers and tests
 
     def _settings_json(self) -> str:
-        """Allow list from claude/settings.json plus absolute deny rules for local/ and the repo code."""
+        """Allow list from claude/settings.json plus absolute deny rules for local/ and the repo code,
+        and the place where the assistant keeps what he asks it to remember."""
         data = {"permissions": {"allow": [], "deny": []}}
         if self.settings.exists():
             data = json.loads(self.settings.read_text(encoding="utf-8"))
         deny = data.setdefault("permissions", {}).setdefault("deny", [])
+        # "From now on ...", "remember that ...": Claude Code writes such things to its memory folder,
+        # by default under ~/.claude. A rule that denied all of ~/.claude denied the memory as well
+        # (a denied Read also blocks writing), so the assistant answered that it had no permission.
+        # The memory lives in the workspace instead, with his documents, and under ~/.claude only
+        # the sign-in and the transcripts are denied, spelled from the root as well for Windows.
+        memory = self.workspace / "memoria"
+        try:
+            memory.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        data["autoMemoryDirectory"] = str(memory if memory.is_absolute() else memory.absolute())
+        for spelled in path_rules(Path.home() / ".claude"):
+            for what in (".credentials.json", "*.json", "*.jsonl", "projects/**/*.jsonl"):
+                pattern = f"Read({spelled}/{what})"
+                if pattern not in deny:
+                    deny.append(pattern)
         for folder, tools in ((LOCAL_DIR, ("Read", "Edit")), (REPO_DIR / "onebutton", ("Edit",)),
                               (REPO_DIR / "claude", ("Edit",)), (REPO_DIR / "modules", ("Edit",))):
             for spelled in path_rules(folder):

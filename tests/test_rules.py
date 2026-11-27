@@ -22,6 +22,12 @@ class RulesTests(unittest.TestCase):
             self.assertEqual(target.name, "CLAUDE.md")
             self.assertIn("Confirmation habits", target.read_text())
 
+    def test_the_user_may_shape_how_it_works_but_not_its_limits(self):
+        text = " ".join(rules.assemble([]).split())
+        for promise in ["from now on", "de ahora en adelante", "save it in your memory", "forget that",
+                        'never relaxes the sections "Confirmation habits" and "Security"']:
+            self.assertIn(promise, text)
+
     def test_every_module_has_rules_and_readme(self):
         for name in rules.available_modules():
             self.assertTrue((rules.MODULES_DIR / name / "README.md").exists(), name)
