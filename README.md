@@ -84,7 +84,8 @@ Close the terminal, open a new one, and sign in:
 
 ### 3. Run the OneButton installer
 
-One command, run once. It is safe to run again.
+One command, run once. It is safe to run again, and running it again brings
+an existing install up to date.
 
 Windows, in PowerShell:
 

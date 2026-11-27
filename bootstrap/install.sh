@@ -29,6 +29,21 @@ cd "$DEST"
 git remote set-url origin "$REPO_URL"
 git fetch --tags --quiet origin
 
+# A folder that was already there keeps the version it had. Bring it up to date before going on:
+# the steps below are the newest installer's and need the newest code. Only `main` is moved, and
+# only forwards; a signed release (a checkout of a tag) is looked after further down.
+BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+if [ "$BRANCH" = "main" ]; then
+  BEFORE="$(git rev-parse HEAD)"
+  if ! git merge --ff-only --quiet origin/main; then
+    echo "AVISO: no pude poner al día el código de $DEST: tiene cambios que no vienen de GitHub. Sigo con la versión que hay."
+  elif [ "$(git rev-parse HEAD)" != "$BEFORE" ]; then
+    say "Código puesto al día"
+  fi
+elif [ -n "$BRANCH" ]; then
+  echo "AVISO: $DEST está en la rama '$BRANCH' y no en main: no la actualizo."
+fi
+
 say "Creando entorno de Python"
 [ -d .venv ] || python3 -m venv .venv
 .venv/bin/pip install --quiet --upgrade pip
@@ -76,8 +91,13 @@ else
 fi
 
 say "Comprobando la voz (si al sistema le falta una voz en inglés o en español, se descarga una; sólo la primera vez)"
-ONEBUTTON_HOME="$DEST" .venv/bin/python -m onebutton --voices \
-  || echo "AVISO: no hay ninguna voz para el idioma en que habla, así que sonará con el acento de otro idioma. Ver docs/guia-ayudante.md, 'Si algo falla'."
+VOICES=0
+ONEBUTTON_HOME="$DEST" .venv/bin/python -m onebutton --voices || VOICES=$?
+if [ "$VOICES" -eq 1 ]; then
+  echo "AVISO: no hay ninguna voz para el idioma en que habla, así que sonará con el acento de otro idioma. Ver docs/guia-ayudante.md, 'Si algo falla'."
+elif [ "$VOICES" -ne 0 ]; then
+  echo "AVISO: no pude comprobar la voz. Si el código de $DEST es más antiguo que este instalador, ponlo al día ('git pull' dentro de esa carpeta) y vuelve a ejecutarlo."
+fi
 
 say "Prueba de voz"
 .venv/bin/python - <<'PY'

@@ -41,6 +41,22 @@ Set-Location $Dest
 git remote set-url origin $RepoUrl
 git fetch --tags --quiet origin
 
+# A folder that was already there keeps the version it had. Bring it up to date before going on:
+# the steps below are the newest installer's and need the newest code. Only `main` is moved, and
+# only forwards; a signed release (a checkout of a tag) is looked after further down.
+$Branch = (git symbolic-ref --short -q HEAD)
+if ($Branch -eq "main") {
+  $Before = (git rev-parse HEAD)
+  git merge --ff-only --quiet origin/main
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "AVISO: no pude poner al día el código de ${Dest}: tiene cambios que no vienen de GitHub. Sigo con la versión que hay." -ForegroundColor Yellow
+  } elseif ((git rev-parse HEAD) -ne $Before) {
+    Say "Código puesto al día"
+  }
+} elseif ($Branch) {
+  Write-Host "AVISO: $Dest está en la rama '$Branch' y no en main: no la actualizo." -ForegroundColor Yellow
+}
+
 Say "Creando entorno de Python"
 if (-not (Test-Path ".venv")) { & $PythonExe.exe @($PythonExe.args) -m venv .venv }
 $Py = Join-Path $Dest ".venv\Scripts\python.exe"
@@ -93,7 +109,11 @@ foreach ($dir in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFo
 
 Say "Comprobando la voz (si a Windows le falta una voz en inglés o en español, se descarga una; sólo la primera vez)"
 & $Py -m onebutton --voices
-if ($LASTEXITCODE -ne 0) { Write-Host "AVISO: no hay ninguna voz para el idioma en que habla, así que sonará con el acento de otro idioma. Ver docs\guia-ayudante.md, 'Si algo falla'." -ForegroundColor Yellow }
+if ($LASTEXITCODE -eq 1) {
+  Write-Host "AVISO: no hay ninguna voz para el idioma en que habla, así que sonará con el acento de otro idioma. Ver docs\guia-ayudante.md, 'Si algo falla'." -ForegroundColor Yellow
+} elseif ($LASTEXITCODE -ne 0) {
+  Write-Host "AVISO: no pude comprobar la voz. Si el código de $Dest es más antiguo que este instalador, ponlo al día ('git pull' dentro de esa carpeta) y vuelve a ejecutarlo." -ForegroundColor Yellow
+}
 
 Say "Prueba de voz"
 & $Py -c "from onebutton.config import load; from onebutton.lang import L, set_language; from onebutton.tts import Speaker; cfg = load(); set_language(cfg['speak_language']); Speaker(cfg).say(L('OneButton installed correctly.', 'OneButton instalado correctamente.'))"
