@@ -14,7 +14,10 @@ página un PDF y no había forma de volver. Ahora la página se mueve con la voz
 principio". En el escritorio, lo que dictas queda escrito tal como lo dices,
 sin que el asistente añada ni cambie nada; di "revisión" y te propone
 correcciones y añadidos de uno en uno, y tú decides cada uno. Hay una hoja de
-inicio rápido para imprimir, en inglés y en español.
+inicio rápido para imprimir, en inglés y en español. Ahora un sonido corto
+que sube avisa cuando empieza a escuchar, y una nota más grave cuando deja de
+escuchar. Si pulsas el botón uno mientras habla, se calla y te escucha en el
+acto; antes había que pulsar otra vez.
 
 **English.** The computer now speaks English and understands English and
 Spanish at once; say "speak Spanish" to switch, and it is remembered. The
@@ -24,9 +27,13 @@ way back. Pages now move by voice: "scroll down", "a little", "a lot",
 written exactly as you say it, with nothing added or changed; say "review" and
 the assistant proposes corrections and additions one at a time, and you decide
 each one. There is a one-page quick start to print, in English and Spanish.
+A short rising sound now tells you when it starts listening, and a lower note
+when it stops. Pressing button 1 while it is speaking makes it stop and listen
+at once; before, you had to press again.
 Config: `speak_language` and `listen_languages` replace `language`;
 `tts_voices` and `whisper_prompts` are per language; `button_exclusive` is new;
-`press_min_hold` is 0 by default, so a quick press counts.
+`press_min_hold` is 0 by default, so a quick press counts; `cue_sounds: false`
+turns the two sounds off.
 
 Earlier, also unreleased:
 

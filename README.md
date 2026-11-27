@@ -221,11 +221,13 @@ hold of about 1.5 seconds.
 
 | | Button 1 (right, unless he swapped) | Button 2 (left) |
 | --- | --- | --- |
-| Press | Talk. Press to start, press again to stop. Also stops speech. | No. Cancel a recording, a task, or a question. Also stops speech. |
+| Press | Talk. Press to start (a short rising two-note sound: it is listening), press again to stop (one lower note). While it is speaking, a press stops the voice and starts listening at once. | No. Cancel a recording, a task, or a question. Also stops speech, without listening. |
 | Hold | Yes, when a question is pending. Otherwise repeat the last reply. | Open the screen's ring menu: panels, formula editing, read aloud, help. |
 
 With a single button, a hold cancels (or explains the controls when idle),
-and yes is the spoken word "adelante".
+and yes is the spoken word "adelante". To just silence it with a single
+button: press (it stops and listens), press again (it stops listening;
+nothing is said about hearing nothing).
 
 - **The buttons belong to OneButton.** Their keys are swallowed before any
   application sees them, so a press never pages a PDF or submits a form.
@@ -313,7 +315,9 @@ Full details in [docs/security.md](docs/security.md).
 `local/config.yaml`, created from [config.example.yaml](config.example.yaml).
 The usual things to change: `speak_language` (`en` or `es`),
 `listen_languages`, `silence_timeout`, `button_key`, `button2_key` (null for
-one button), `button_exclusive`, `tts_voices`, `whisper_model`.
+one button), `button_exclusive`, `cue_sounds` (`true` by default; `false`
+turns off the two sounds that tell him when it starts and stops listening),
+`tts_voices`, `whisper_model`.
 
 ## The screen
 
