@@ -10,13 +10,15 @@ Pure and time-explicit so it is testable. The filters, all in the config:
               so a double tap cannot start and stop a recording at once.
 - long_hold:  held this long counts as a long press, emitted as soon as it is
               reached so the user feels it without waiting for the release.
+- note_hold:  still held this long (five seconds), a third gesture follows the
+              long one: a note for whoever maintains OneButton. 0 turns it off.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-SHORT, LONG = "short", "long"
+SHORT, LONG, VERY_LONG = "short", "long", "very_long"
 
 
 @dataclass
@@ -25,16 +27,18 @@ class PressFilter:
     bounce: float = 0.15
     refractory: float = 0.35
     long_hold: float = 1.5
+    note_hold: float = 5.0
     _down_at: float | None = None      # start of the current hold (survives bounces)
     _up_at: float | None = None        # last release, while inside the bounce window
     _long_sent: bool = False
+    _note_sent: bool = False
     _last_event_at: float = field(default=-1e9)
 
     def down(self, t: float) -> list[tuple[str, float]]:
         if self._down_at is None:
             if t - self._last_event_at < self.refractory:
                 return []
-            self._down_at, self._long_sent = t, False
+            self._down_at, self._long_sent, self._note_sent = t, False, False
         self._up_at = None  # a re-press inside the bounce window continues the hold
         return []
 
@@ -51,6 +55,10 @@ class PressFilter:
             self._long_sent = True
             self._last_event_at = t
             return [(LONG, t)]
+        if self._long_sent and not self._note_sent and (self._up_at is None) and 0 < self.note_hold <= t - self._down_at:
+            self._note_sent = True
+            self._last_event_at = t
+            return [(VERY_LONG, t)]
         if self._up_at is not None and t - self._up_at >= self.bounce:
             held = self._up_at - self._down_at
             self._down_at, up = None, self._up_at

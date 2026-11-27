@@ -39,6 +39,8 @@ DEFAULTS = {
     "press_bounce": 0.15,
     "press_refractory": 0.35,
     "long_hold": 1.5,
+    "note_hold": 5.0,                # still held this long: a note for the maintainer. 0 turns it off
+    "maintainer_name": "Marco",      # who the notes are for, as it is said aloud
     "button_source": "auto",
     "silence_timeout": 90,
     "max_recording": 600,

@@ -465,9 +465,10 @@ class EvidenceTests(unittest.TestCase):
         for press, what in [(("no", "short"), "una pulsación cortó la voz; no empezó a grabar"),
                             (("talk", "short"), "una pulsación cortó la voz y empieza a escuchar")]:
             pressed = __import__("queue").Queue()
-            pressed.put(press)
-            lp.button = types.SimpleNamespace(events=pressed, clear=lambda: None, poll=pressed.get_nowait)
-            lp.speaker = types.SimpleNamespace(say=lambda text, until=None, clean=False: False)   # False: it was interrupted
+            lp.button = types.SimpleNamespace(events=pressed, clear=lambda: None,
+                                              poll=lambda: None if pressed.empty() else pressed.get_nowait())
+            # he presses while it is speaking; False: it was interrupted
+            lp.speaker = types.SimpleNamespace(say=lambda text, until=None, clean=False: bool(pressed.put(press)))
             lp.barged = False
             lp.say("A long reply.")
             self.assertEqual(self.logged.pop(), ("BOTÓN", what))

@@ -60,7 +60,21 @@ it is useful and sensitive, and the agent is denied read access to `local/`.
 Transcription is local (faster-whisper). Speech is local. The blackboard
 module vendors its JavaScript and fonts and binds to 127.0.0.1 only. The only
 network traffic in normal use is Claude Code's own, plus `git fetch` when the
-user says "actualiza".
+user says "actualiza", and the note described next.
+
+A note for the maintainer is the one thing the user sends on purpose. He
+holds his button five seconds and says what went wrong; the loop
+(`onebutton/report.py`), not the agent, opens an issue on this project's
+GitHub repository, which is public. The issue holds the note as he dictated
+it, the program's version, the system and the number of buttons, and the last
+button presses, recording lengths and failed commands from
+`local/session.log`, kept by an allow-list of line kinds. Nothing he said to
+the computer and nothing it answered is included. The token that may write
+issues is `ONEBUTTON_GITHUB_TOKEN` in `local/credentials.env`: a fine-grained
+token for this repository with "Issues: Read and write" and nothing else. It
+goes to api.github.com only, is never written to a note or the log, and the
+agent is denied read access to `local/`. Without a token, notes stay in
+`local/reports/` and go out with the next one.
 
 ## Known gaps
 
@@ -68,6 +82,8 @@ user says "actualiza".
   Claude Code signed in without a browser; see `docs/login.md`. It is a
   secret on disk, protected by the OS user account and the agent's deny rule
   on `local/`, and it must be renewed by a helper when it lapses.
+- A note for the maintainer is public and says whatever he dictated. Tell him
+  so, and ask him to keep private things out of it.
 - Whisper can mis-hear. The confirmation words were chosen to be two syllables
   and unlike everyday speech, but test them in the user's own voice.
 - A compromised microphone or a person in the room can speak commands. The

@@ -6,6 +6,8 @@ its own, different enough to tell apart without thinking:
 
     listening   two quick notes going up
     stopped     one lower note
+    a note      three pips on one pitch (he held the button five seconds: what
+                he says next is a note for whoever maintains OneButton)
 
 They are made here, as numbers, so there are no sound files to ship or to lose.
 `cue_sounds: false` in the config turns them off.
@@ -24,6 +26,7 @@ RATE = 44100
 # (frequency in Hz, seconds); 0 Hz is a pause.
 START = [(660, 0.07), (0, 0.025), (990, 0.11)]
 STOP = [(392, 0.17)]
+NOTE = [(784, 0.07), (0, 0.05), (784, 0.07), (0, 0.05), (784, 0.07)]
 
 
 def tone(notes: list[tuple[float, float]], rate: int = RATE, volume: float = 0.3) -> np.ndarray:
@@ -67,7 +70,7 @@ class Cues:
     def __init__(self, cfg: dict, play=None):
         self.enabled = bool(cfg.get("cue_sounds", True))
         self._play = play or _play
-        self._sounds = {"start": (tone(START), START), "stop": (tone(STOP), STOP)}
+        self._sounds = {"start": (tone(START), START), "stop": (tone(STOP), STOP), "note": (tone(NOTE), NOTE)}
 
     def start(self) -> None:
         """He pressed to talk: it is listening now."""
@@ -76,6 +79,10 @@ class Cues:
     def stop(self) -> None:
         """It stopped listening."""
         self._emit("stop")
+
+    def note(self) -> None:
+        """He held the button five seconds: a note is about to be taken."""
+        self._emit("note")
 
     def _emit(self, which: str) -> None:
         if not self.enabled:

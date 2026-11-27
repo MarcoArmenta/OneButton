@@ -17,7 +17,8 @@ correcciones y añadidos de uno en uno, y tú decides cada uno. Hay una hoja de
 inicio rápido para imprimir, en inglés y en español. Ahora un sonido corto
 que sube avisa cuando empieza a escuchar, y una nota más grave cuando deja de
 escuchar. Si pulsas el botón uno mientras habla, se calla y te escucha en el
-acto; antes había que pulsar otra vez.
+acto; antes había que pulsar otra vez. Si algo sale mal, mantén el botón
+pulsado cinco segundos para dejarle una nota a Marco.
 
 **English.** The computer now speaks English and understands English and
 Spanish at once; say "speak Spanish" to switch, and it is remembered. The
@@ -29,11 +30,12 @@ the assistant proposes corrections and additions one at a time, and you decide
 each one. There is a one-page quick start to print, in English and Spanish.
 A short rising sound now tells you when it starts listening, and a lower note
 when it stops. Pressing button 1 while it is speaking makes it stop and listen
-at once; before, you had to press again.
+at once; before, you had to press again. If something goes wrong, hold the
+button for five seconds to leave a note for Marco.
 Config: `speak_language` and `listen_languages` replace `language`;
 `tts_voices` and `whisper_prompts` are per language; `button_exclusive` is new;
 `press_min_hold` is 0 by default, so a quick press counts; `cue_sounds: false`
-turns the two sounds off.
+turns the two sounds off; `note_hold` and `maintainer_name` are new.
 
 Earlier, also unreleased:
 
