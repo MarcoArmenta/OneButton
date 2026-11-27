@@ -451,7 +451,9 @@ class Loop:
             self.log("EQUIPO", f"error en {args[0] if args else '?'}: {res['error']}")
         return res
 
-    def desktop_act(self, act: dict) -> None:
+    def desktop_act(self, act: dict) -> bool:
+        """Carry out a direct order. False when the computer has nothing by that name, so what he
+        said was not an order after all and should go to Claude ("ve a la sección cinco")."""
         a = act["action"]
         if a == "windows":
             wins = self.desktop("windows")
@@ -459,21 +461,22 @@ class Loop:
             self.say(L("Windows: ", "Ventanas: ") + ". ".join(titles) + "." if titles else L("I see no windows.", "No veo ventanas."))
         elif a in ("focus", "open"):
             r = self.desktop(a, act["target"])
-            self.say(r.get("focused") or r.get("opened") or r.get("error", L("Done.", "Hecho.")))
+            if r.get("error"):
+                return False   # no window or program of that name
+            self.say(r.get("focused") or r.get("opened") or L("Done.", "Hecho."))
         elif a in ("minimize", "maximize"):
-            self.say(self.desktop(a).get("error", L("Done.", "Hecho.")))
+            self.say(self.outcome(self.desktop(a), L("Done.", "Hecho.")))
         elif a == "key":
-            self.say(self.desktop("key", act["keys"]).get("error", L("Done.", "Hecho.")), clean=True)
+            self.say(self.outcome(self.desktop("key", act["keys"]), L("Done.", "Hecho.")), clean=True)
         elif a == "type":
-            self.say(self.desktop("type", act["text"]).get("error", L("Typed.", "Escrito.")))
+            self.say(self.outcome(self.desktop("type", act["text"]), L("Typed.", "Escrito.")))
         elif a == "scroll":   # silent: he sees the page move, and speech would only slow the next "otra vez"
             self.last_scroll = (act["dir"], int(act["n"]), time.monotonic())
             self.desktop("scroll", act["dir"], str(act["n"]))
         elif a == "volume":
-            self.say(self.desktop("volume", act["what"]).get("error", ""))
+            self.say(self.outcome(self.desktop("volume", act["what"]), ""))
         elif a == "screenshot":
-            r = self.desktop("screenshot")
-            self.say(L("Screenshot saved.", "Captura guardada.") if "path" in r else r.get("error", ""))
+            self.say(self.outcome(self.desktop("screenshot"), L("Screenshot saved.", "Captura guardada.")))
         elif a == "describe":
             r = self.desktop("screenshot")
             if "path" in r:
@@ -744,7 +747,8 @@ class Loop:
                 if code:
                     term.send_line(code); code_sent = True
                 elif act:
-                    self.desktop_act(act)
+                    if self.desktop_act(act) is False:
+                        self.say(how)
                 elif commands.normalize(heard) in ("abre la pagina", "abre el enlace", "abre el navegador", "open the page",
                                                    "open the link", "open the browser") and login.extract_url(out):
                     import webbrowser
@@ -916,9 +920,15 @@ class Loop:
                 act = None   # the OneButton page is in front: there is no application to type into, so it is for Claude
             if act:
                 self.log("EQUIPO", json.dumps(act, ensure_ascii=False))
-                self.desktop_act(act)
-                return
+                if self.desktop_act(act) is not False:
+                    return
         self.handle_claude(text)
+
+    @staticmethod
+    def outcome(result: dict, done: str) -> str:
+        """What to say after an order to the computer. The tool's own error is for the log (it is
+        written there by desktop()), not for his ears: it is technical and in one language."""
+        return L("I could not do that.", "No pude hacerlo.") if result.get("error") else done
 
     def desktop_parse(self, text: str, dictating: bool = False) -> dict | None:
         """The direct action an utterance asks for, if any. "Otra vez" repeats the last scroll while
@@ -1052,6 +1062,11 @@ class Loop:
                                "Un momento, escuchando el ruido de la sala."), show=False)
             self.recorder.calibrate()
         self.start_modules()
+        if self.button:
+            # Whether the button's keys are kept from other programs: if "no", a press also reaches
+            # whatever is in front (a space bar pauses a video), and the reason is in the terminal.
+            self.log("SISTEMA", f"botón: captura {getattr(self.button, 'source', '?')}, "
+                                f"teclas reservadas: {'sí' if getattr(self.button, 'exclusive', False) else 'no'}")
         self.say(banner())
         if not self.dry_run:
             st = auth.status(self.cfg["claude_bin"])

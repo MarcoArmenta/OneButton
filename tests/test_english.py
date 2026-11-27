@@ -356,6 +356,26 @@ class LoopTests(unittest.TestCase):
         lp.handle_text("again")
         self.assertEqual(lp.sent, ["otra vez", "again"])
 
+    def test_going_to_something_that_is_not_a_window_is_a_request_for_claude(self):
+        lp = self.lp
+        lp.desktop = lambda *args: lp.did.append(args) or ({"error": "no hay ninguna ventana que se llame eso"}
+                                                             if args[0] == "focus" else {})
+        lp.handle_text("ve a la sección 5 del artículo")
+        self.assertEqual(lp.sent, ["ve a la sección 5 del artículo"], "Claude finds section 5; there is no such window")
+        self.assertEqual(lp.speaker.said, [], "and the tool's own error is not read out")
+        lp.desktop = lambda *args: lp.did.append(args) or {"focused": "Google Chrome"}
+        lp.handle_text("go to Chrome")
+        self.assertEqual((lp.sent, lp.speaker.said), (["ve a la sección 5 del artículo"], ["Google Chrome"]))
+
+    def test_an_order_that_failed_is_said_in_the_language_spoken(self):
+        lp = self.lp
+        lp.desktop = lambda *args: {"error": "FailSafeException: el puntero está en una esquina"}
+        lp.handle_text("maximize this window")
+        self.assertEqual(lp.speaker.said, ["I could not do that."])
+        lang.set_language("es")
+        lp.handle_text("minimiza")
+        self.assertEqual(lp.speaker.said[-1], "No pude hacerlo.")
+
     def test_dictation_is_written_down_not_carried_out(self):
         lp = self.lp
         lp.handle_text("abre el bloc de notas")                       # not dictating: an order to the computer
