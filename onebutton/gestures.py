@@ -4,7 +4,9 @@ Buttons: "talk" (button 1, the stronger hand) and "no" (button 2, optional).
 Gestures: "short" and "long" (held about 1.5 s).
 
 With two buttons each one keeps a single meaning everywhere:
-  talk short = speak / stop speaking / stop speech      no short = cancel, no
+  talk short = speak / stop speaking                    no short = cancel, no
+  (pressed while the computer speaks, talk short stops the voice and starts listening,
+  and no short only silences it; that part is in the loop's say(), not here)
   talk long  = yes when asked, otherwise repeat         no long  = help
 
 With one button the old mapping holds: talk long = cancel, or help when idle.
@@ -60,24 +62,27 @@ def interpret(event: Event, state: str, two_buttons: bool) -> str:
 def help_text(two_buttons: bool) -> str:
     if two_buttons:
         return L(
-            "Button one: press to talk and press again to finish. Hold it to say yes when I ask, "
-            "or to hear the last reply again. "
+            "Button one: press to talk and press again to finish. A rising sound means I am listening, "
+            "a low one that I stopped. Hold it to say yes when I ask, or to hear the last reply again. "
             "Button two: press to cancel or say no. Hold it to hear this help. "
             "To move a page, say 'scroll down', 'a little more', 'again' or 'go up'. "
             "Say 'new conversation' to start something else while a task goes on, and 'conversation one' to go back. "
             "Say 'update' to look for improvements, or 'undo' to go back to the previous version.",
-            "Botón uno: pulsa para hablar y otra vez para terminar. Mantenlo pulsado para decir sí "
+            "Botón uno: pulsa para hablar y otra vez para terminar. Un sonido que sube quiere decir que te "
+            "escucho; uno grave, que dejé de escuchar. Mantenlo pulsado para decir sí "
             "cuando te pregunte, o para repetir la última respuesta. "
             "Botón dos: pulsa para cancelar o decir no. Mantenlo pulsado para oír esta ayuda. "
             "Para mover una página di 'baja', 'baja un poco', 'otra vez' o 've hacia arriba'. "
             "Di 'nueva conversación' para empezar otra cosa mientras una tarea sigue, y 'conversación uno' para volver. "
             "Di 'actualiza' para buscar mejoras, o 'deshacer' para volver a la versión anterior.")
     return L(
-        "Press once to talk and once more to finish. Hold to cancel. "
+        "Press once to talk and once more to finish. A rising sound means I am listening, a low one that "
+        "I stopped. Hold to cancel. "
         "Say 'repeat' to hear the last reply, 'scroll down' or 'go up' to move a page, 'new conversation' to start "
         "something else while a task goes on, 'update' to look for improvements, or 'undo' to go back to the "
         "previous version.",
-        "Pulsa una vez para hablar y otra vez para terminar. Mantén pulsado para cancelar. "
+        "Pulsa una vez para hablar y otra vez para terminar. Un sonido que sube quiere decir que te escucho; "
+        "uno grave, que dejé de escuchar. Mantén pulsado para cancelar. "
         "Di 'repite' para oír la última respuesta, 'baja' o 've hacia arriba' para mover una página, "
         "'nueva conversación' para empezar otra cosa mientras una tarea sigue, 'actualiza' para buscar mejoras, "
         "o 'deshacer' para volver a la versión anterior.")

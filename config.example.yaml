@@ -7,6 +7,7 @@ button_key: space            # Button 1, the stronger hand: talk. Key the USB sw
 button2_key: enter           # Button 2, optional: no / cancel. Set to null for a single-button setup.
 button_exclusive: true       # The button keys reach OneButton only, never the application in front (a space bar would
                              # page a PDF). While it runs, those two keys do nothing on a real keyboard; false turns it off.
+cue_sounds: true             # Two notes going up when it starts listening, one lower note when it stops. false: silent.
 # Tremor filters (seconds). Set min_hold and raise refractory if accidental presses get through.
 press_min_hold: 0            # 0: every press counts, however short. Set it (0.06 to 0.12) to ignore presses shorter than that.
 press_bounce: 0.15           # A release and re-press within this window is one hold continuing.
