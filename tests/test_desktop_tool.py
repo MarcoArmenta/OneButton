@@ -27,6 +27,34 @@ class ScrollPointTests(unittest.TestCase):
         self.assertIsNone(desktop.scroll_point((0, 0, 10, 10)))
 
 
+class SiteTests(unittest.TestCase):
+    """"Open Gmail" names a website, not a program. Typed into the Start menu it becomes a web search for the word."""
+
+    def test_known_sites(self):
+        self.assertEqual(desktop.site_url("gmail"), "https://mail.google.com/")
+        self.assertEqual(desktop.site_url("Gmail"), "https://mail.google.com/")
+        self.assertEqual(desktop.site_url("correo de gmail"), "https://mail.google.com/")
+        self.assertEqual(desktop.site_url("youtube"), "https://www.youtube.com/")
+        self.assertEqual(desktop.site_url("google drive"), "https://drive.google.com/")
+
+    def test_an_address_is_opened_as_it_is(self):
+        self.assertEqual(desktop.site_url("wikipedia.org"), "https://wikipedia.org")
+        self.assertEqual(desktop.site_url("https://example.com/a?b=1"), "https://example.com/a?b=1")
+        self.assertEqual(desktop.site_url("www.unam.mx"), "https://www.unam.mx")
+
+    def test_programs_are_not_sites(self):
+        for name in ["notepad", "bloc de notas", "word", "chrome", "calendar", "outlook", "v1.2", "informe.pdf",
+                     "notepad.exe", ""]:
+            self.assertIsNone(desktop.site_url(name), name)
+
+    def test_open_goes_to_the_browser_not_to_the_start_menu(self):
+        opened = []
+        with mock.patch.object(desktop, "open_url", opened.append), mock.patch.object(desktop, "out", lambda obj: obj):
+            res = desktop.open_app("gmail")
+        self.assertEqual(opened, ["https://mail.google.com/"])
+        self.assertEqual(res, {"opened": "gmail", "url": "https://mail.google.com/"})
+
+
 class OwnPythonTests(unittest.TestCase):
     """Claude runs this file with whichever `python` comes first, which usually lacks pyautogui."""
 

@@ -6,7 +6,8 @@ calls it to act on what it sees in a screenshot. Every command prints JSON.
 
     desktop.py windows                       [{"title", "app", "active"}]
     desktop.py focus <name>                  bring the window whose title or app contains <name> to the front
-    desktop.py open <name>                   start an app by name (Start menu search on Windows)
+    desktop.py open <name>                   start an app by name (Start menu search on Windows); a known
+                                             website ("gmail") or an address opens in the browser
     desktop.py minimize | maximize
     desktop.py key <combo>                   e.g. enter, esc, ctrl+s, alt+f4, win+d
     desktop.py type <text>                   type text into the focused app (Unicode safe)
@@ -32,6 +33,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -147,7 +149,50 @@ def focus(name: str) -> int:
     return fail(f"no hay ninguna ventana que se llame {name}")
 
 
+# Things people ask to "open" that are websites, not programs. Typed into the Start menu, "gmail"
+# becomes a web search for the word; here it is opened at its address in the default browser.
+# Only names that cannot be a program on the computer: "calendar", "maps" or "outlook" may be one.
+SITES = {
+    "gmail": "https://mail.google.com/", "google mail": "https://mail.google.com/",
+    "correo de gmail": "https://mail.google.com/", "correo gmail": "https://mail.google.com/",
+    "google": "https://www.google.com/",
+    "youtube": "https://www.youtube.com/",
+    "google drive": "https://drive.google.com/",
+    "google calendar": "https://calendar.google.com/", "calendario de google": "https://calendar.google.com/",
+    "google maps": "https://www.google.com/maps", "mapas de google": "https://www.google.com/maps",
+    "google docs": "https://docs.google.com/", "documentos de google": "https://docs.google.com/",
+    "wikipedia": "https://www.wikipedia.org/",
+}
+# An address: it says so (https://, www.) or ends in a usual domain. "informe.pdf" and "notepad.exe" are not.
+_ADDRESS = re.compile(r"(?:https?://\S+|www\.\S+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|edu|gov|mx|ca|es|io|ai|app|dev)(?:[/?#]\S*)?)",
+                      re.IGNORECASE)
+
+
+def site_url(name: str) -> str | None:
+    """The address to open for `name` when it is a known website or already an address; else None."""
+    name = " ".join(name.split())
+    known = SITES.get(name.lower())
+    if known:
+        return known
+    if _ADDRESS.fullmatch(name):
+        return name if name.lower().startswith("http") else "https://" + name
+    return None
+
+
+def open_url(url: str) -> None:
+    """In the default browser."""
+    if WIN:
+        os.startfile(url)   # noqa: S606 - the address comes from SITES or was checked by _ADDRESS
+    else:
+        import webbrowser
+        webbrowser.open(url)
+
+
 def open_app(name: str) -> int:
+    url = site_url(name)
+    if url:
+        open_url(url)
+        return out({"opened": name, "url": url})
     if WIN:
         import pyautogui
         pyautogui.press("win")

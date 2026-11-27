@@ -11,6 +11,7 @@ works in Spanish and in English ("go to Chrome", "click seven", "type hello",
 | --- | --- |
 | "qué ventanas hay" | reads the open windows |
 | "ve a Chrome", "cambia al correo", "abre el bloc de notas" | switches to or starts an app |
+| "abre Gmail", "open YouTube" | a known website opens in the browser at its address, not as a web search for the word |
 | "cierra esta ventana", "minimiza", "maximiza" | window management |
 | "números" | numbers every clickable control of the active window |
 | "pulsa el siete" | clicks number 7 (with or without the overlay shown first) |

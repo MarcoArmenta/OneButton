@@ -412,6 +412,54 @@ class LoopTests(unittest.TestCase):
             save.assert_called_once()
 
 
+class EvidenceTests(unittest.TestCase):
+    """What a helper needs in local/session.log to see, afterwards, why something he said did nothing."""
+
+    def setUp(self):
+        lang.set_language("en")
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lp = make_loop(Path(self.tmp.name))
+        self.logged = []
+        self.lp.log = lambda who, text: self.logged.append((who, text))
+
+    def test_every_recording_is_logged_with_its_length_and_level(self):
+        lp = self.lp
+        lp.recorder = types.SimpleNamespace(rate=16000, record_until=lambda stop: np.full(32000, 0.25, dtype=np.float32))
+        lp.transcriber = types.SimpleNamespace(transcribe=lambda audio: "hello")
+        lp.action = lambda state, timeout=None: None
+        self.assertEqual(lp.record_and_transcribe(), "hello")
+        self.assertEqual(self.logged, [("GRABACIÓN", "2.0 s, nivel 0.25"), ("TÚ", "hello")])
+
+    def test_every_press_is_logged_with_what_it_meant_then(self):
+        lp = self.lp
+        lp.button = types.SimpleNamespace(wait=lambda timeout=None: ("talk", "short"))
+        self.assertEqual(lp.action("idle"), "talk")
+        self.assertEqual(lp.action("recording"), "stop")
+        lp.button = types.SimpleNamespace(wait=lambda timeout=None: None)
+        self.assertIsNone(lp.action("idle", 0.1))
+        self.assertEqual(self.logged, [("BOTÓN", "talk short (idle) -> talk"), ("BOTÓN", "talk short (recording) -> stop")])
+
+    def test_a_press_that_only_cut_the_voice_is_logged(self):
+        lp = self.lp
+        pressed = __import__("queue").Queue()
+        pressed.put(("talk", "short"))
+        lp.button = types.SimpleNamespace(events=pressed, clear=lambda: None)
+        lp.speaker = types.SimpleNamespace(say=lambda text, until=None, clean=False: False)   # False: it was interrupted
+        lp.say("A long reply.")
+        self.assertEqual(self.logged, [("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")])
+
+    def test_an_order_to_the_computer_that_failed_is_logged(self):
+        lp = self.lp
+        del lp.desktop                                   # the real one, with the tool itself faked
+        lp.desktop_py = Path("desktop.py")
+        failed = types.SimpleNamespace(stdout='{"error": "FailSafeException: pointer in a corner"}')
+        with mock.patch.object(loop_mod.subprocess, "run", return_value=failed):
+            res = lp.desktop("scroll", "down", "2")
+        self.assertEqual(res["error"], "FailSafeException: pointer in a corner")
+        self.assertEqual(self.logged, [("EQUIPO", "error en scroll: FailSafeException: pointer in a corner")])
+
+
 class DeskRulesTests(unittest.TestCase):
     """The promises the writing desk makes, so a later edit cannot quietly drop one."""
 

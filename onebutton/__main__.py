@@ -205,6 +205,7 @@ class Loop:
         finished = self.speaker.say(text, until=lambda: not self.button.events.empty(), clean=clean)
         if not finished:
             self.button.clear()
+            self.log("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")
 
     def start_modules(self) -> None:
         """Start the screen, then any long-running helper a module ships."""
@@ -243,7 +244,12 @@ class Loop:
     # ---- input -----------------------------------------------------------
     def action(self, state: str, timeout: float | None = None) -> str | None:
         ev = self.button.wait(timeout)
-        return None if ev is None else interpret(ev, state, self.two_buttons)
+        if ev is None:
+            return None
+        act = interpret(ev, state, self.two_buttons)
+        # The same press means different things at different moments; the log says which it was.
+        self.log("BOTÓN", f"{ev[0]} {ev[1]} ({state}) -> {act}")
+        return act
 
     def listen_once(self) -> str | None:
         """Wait idle for a press, record until the next press, return text. None if cancelled."""
@@ -285,6 +291,10 @@ class Loop:
         threading.Thread(target=watch_button, daemon=True).start()
         audio = self.recorder.record_until(stop)
         stop.set()
+        # How long it listened and how loud the loudest moment was (1.0 is the limit): a long, quiet
+        # recording is one he did not know was running; a short loud one that gives no text is the recogniser.
+        level = float(abs(audio).max()) if audio.size else 0.0
+        self.log("GRABACIÓN", f"{audio.size / self.recorder.rate:.1f} s, nivel {level:.2f}")
         if cancelled.is_set():
             self.say(L("Cancelled.", "Cancelado."))
             return None
@@ -381,9 +391,13 @@ class Loop:
     def desktop(self, *args: str) -> dict:
         try:
             proc = subprocess.run([sys.executable, str(self.desktop_py), *args], capture_output=True, text=True, timeout=30)
-            return json.loads(proc.stdout.strip() or "{}")
+            res = json.loads(proc.stdout.strip() or "{}")
         except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
-            return {"error": str(exc)}
+            res = {"error": str(exc)}
+        if isinstance(res, dict) and res.get("error"):
+            # Some orders are silent (scrolling): without this line a failure would leave no trace.
+            self.log("EQUIPO", f"error en {args[0] if args else '?'}: {res['error']}")
+        return res
 
     def desktop_act(self, act: dict) -> None:
         a = act["action"]
