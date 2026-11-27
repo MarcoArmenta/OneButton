@@ -12,17 +12,20 @@ keyboard does. Every finished turn comes back as a `result` line, handed to the
 conversation's callback from a reader thread.
 
 Tools outside the allow list in claude/settings.json are denied rather than prompted,
-so a turn can never hang waiting for a click.
+so a turn can never hang waiting for a click. What was denied in a turn comes back in
+its `result` line and is handed to `Agent.on_denied`, so the log shows what to allow.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import threading
 import time
 import uuid
+from pathlib import PurePath
 
 from .auth import login_message, subprocess_env
 from .config import LOCAL_DIR, REPO_DIR, WORKSPACE_DIR
@@ -70,6 +73,33 @@ def reply_from_result(d: dict, helper: str) -> str:
         return text
     detail = errors.strip() or subtype or L("no detail", "sin detalle")
     return L(f"Claude Code returned an error: {detail}.", f"Claude Code devolvió un error: {detail}.")
+
+
+def denials(d: dict) -> list[str]:
+    """What Claude Code refused during the turn of a `result` line, one short line each."""
+    items = d.get("permission_denials")
+    out = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        given = item.get("tool_input") if isinstance(item.get("tool_input"), dict) else {}
+        what = next((str(given[k]) for k in ("command", "url", "file_path", "path", "query", "pattern") if given.get(k)), "")
+        out.append(f"{item.get('tool_name') or '?'}: {what[:300]}" if what else str(item.get("tool_name") or "?"))
+    return out
+
+
+def path_rules(path) -> list[str]:
+    """An absolute path as permission rules spell it: // and the path from the root.
+
+    Claude Code matches Windows paths in POSIX form with the drive as a folder
+    (C:\\Users\\ana is /c/Users/ana), so that spelling comes first; the one with the
+    colon is kept beside it.
+    """
+    posix = PurePath(path).as_posix()
+    drive = re.match(r"^([A-Za-z]):/(.*)$", posix)
+    if drive:
+        return [f"//{drive.group(1).lower()}/{drive.group(2)}", f"//{posix}"]
+    return [f"//{posix}"]
 
 
 class Session:
@@ -178,6 +208,12 @@ class Session:
                     with self.lock:
                         self.pending = 0
                         self.last_activity = time.monotonic()
+                    refused = denials(d)
+                    if refused and self.agent.on_denied:
+                        try:
+                            self.agent.on_denied(refused)
+                        except Exception:
+                            pass
                     self.on_reply(reply_from_result(d, self.agent.helper))
         except (OSError, ValueError):
             pass
@@ -223,6 +259,7 @@ class Agent:
         self.workspace = WORKSPACE_DIR
         self.cfg = cfg
         self.sessions: dict[str, Session] = {}
+        self.on_denied = None         # called with [what was refused] after a turn that hit the allow list
         self._lock = threading.Lock()
         self._watchdog: threading.Thread | None = None
 
@@ -245,12 +282,13 @@ class Agent:
         if self.settings.exists():
             data = json.loads(self.settings.read_text(encoding="utf-8"))
         deny = data.setdefault("permissions", {}).setdefault("deny", [])
-        local, repo = LOCAL_DIR.as_posix(), REPO_DIR.as_posix()
-        for pattern in (f"Read(//{local}/**)", f"Edit(//{local}/**)",
-                        f"Edit(//{repo}/onebutton/**)", f"Edit(//{repo}/claude/**)",
-                        f"Edit(//{repo}/modules/**)"):
-            if pattern not in deny:
-                deny.append(pattern)
+        for folder, tools in ((LOCAL_DIR, ("Read", "Edit")), (REPO_DIR / "onebutton", ("Edit",)),
+                              (REPO_DIR / "claude", ("Edit",)), (REPO_DIR / "modules", ("Edit",))):
+            for spelled in path_rules(folder):
+                for tool in tools:
+                    pattern = f"{tool}({spelled}/**)"
+                    if pattern not in deny:
+                        deny.append(pattern)
         return json.dumps(data)
 
     # ---- conversations ---------------------------------------------------

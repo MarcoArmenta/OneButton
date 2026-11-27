@@ -48,6 +48,14 @@ the LaTeX source, and writes the file back. Claude is only called to turn
 dictated content into LaTeX. The board speaks for itself through the
 browser's speech engine, so turn the browser's sound on.
 
+## Moving around
+
+The board shows itself as soon as Claude writes on it, starting at the first
+thing that changed. From there, by voice: "baja" and "sube" move most of a
+screen, "baja un poco" less, "baja mucho" or "baja tres" more, "al principio"
+and "al final" go to the ends. "Baja el pizarrón" does the same when another
+panel or another application is in front. A panel comes back where it was left.
+
 ## Voice phrases that the rules understand
 
 - "escribe en el pizarrón ..." / anything mathematical

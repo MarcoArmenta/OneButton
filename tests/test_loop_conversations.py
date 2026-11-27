@@ -190,5 +190,55 @@ class LoopConversationTests(unittest.TestCase):
         self.assertEqual([c.n for c in lp.convs.items], [2])
 
 
+class FakeScreen:
+    def __init__(self, focused):
+        self.focused = focused
+
+    def state(self):
+        return {"mode": "idle", "focused": self.focused}
+
+
+class TypingOrClaudeTests(unittest.TestCase):
+    """'escribe ...' types into the application in front. About the pizarrón, or with the OneButton
+    page itself in front, there is nothing to type into: it is a request to Claude."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self.tmp.name)
+        self.patch = mock.patch.object(loop_mod, "WORKSPACE_DIR", self.ws)
+        self.patch.start()
+
+    def tearDown(self):
+        self.patch.stop()
+        self.tmp.cleanup()
+
+    def loop(self, focused):
+        lp = make_loop(self.ws, [], [])
+        lp.agent.gate.set()
+        lp.desktop_enabled = True
+        lp.screen = FakeScreen(focused)
+        lp.acted = []
+        lp.desktop_act = lp.acted.append
+        return lp
+
+    def test_writing_on_the_pizarron_reaches_claude(self):
+        lp = self.loop(focused=False)
+        lp.handle_text("Escribe en el pizarrón x al cuadrado más uno.")
+        self.assertEqual(lp.acted, [], "nothing was typed on the keyboard")
+        self.assertEqual([c[0] for c in lp.agent.calls], ["Escribe en el pizarrón x al cuadrado más uno."])
+
+    def test_escribe_with_the_page_in_front_reaches_claude(self):
+        lp = self.loop(focused=True)
+        lp.handle_text("escribe la fórmula de la energía")
+        self.assertEqual(lp.acted, [])
+        self.assertEqual(len(lp.agent.calls), 1)
+
+    def test_escribe_with_another_application_in_front_types(self):
+        lp = self.loop(focused=False)
+        lp.handle_text("escribe hola Juan")
+        self.assertEqual(lp.acted, [{"action": "type", "text": "hola juan"}])
+        self.assertEqual(lp.agent.calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()

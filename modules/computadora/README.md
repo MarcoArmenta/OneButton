@@ -16,9 +16,9 @@ works in Spanish and in English ("go to Chrome", "click seven", "type hello",
 | "pulsa el siete" | clicks number 7 (with or without the overlay shown first) |
 | "rejilla" | a 3×3 grid over the screen; say a cell to zoom, three times to click anywhere |
 | "clic derecho", "doble clic" | at the pointer |
-| "escribe hola Juan" | types into the focused app |
+| "escribe hola Juan" | types into the focused app. With the OneButton page in front, or when it names the pizarrón or the manuscript, it is a request to Claude instead |
 | "intro", "escape", "copiar", "pegar", "control s", "alt tab" | keys |
-| "baja", "baja un poco", "baja mucho", "sube", "ve hacia arriba", "scroll down", "go up a little" | scrolls the window in front: half a screen, a little, a whole screen |
+| "baja", "baja un poco", "baja mucho", "sube", "ve hacia arriba", "scroll down", "go up a little" | scrolls the window in front (the pointer is put on it first): half a screen, a little, a whole screen. With the OneButton page in front they scroll its panel, most of a screen at a time; "baja el pizarrón" / "scroll down the board" scrolls that panel whatever is in front |
 | "otra vez", "again", "más" | repeats the last scroll (within five minutes) |
 | "al principio", "al final", "go to the top", "página siguiente", "next page" | start, end, a page at a time |
 | "sube el volumen", "silencio" | volume |

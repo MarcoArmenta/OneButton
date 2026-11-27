@@ -11,7 +11,7 @@ calls it to act on what it sees in a screenshot. Every command prints JSON.
     desktop.py key <combo>                   e.g. enter, esc, ctrl+s, alt+f4, win+d
     desktop.py type <text>                   type text into the focused app (Unicode safe)
     desktop.py click <x> <y> [left|right|double]   or: click here [right|double]
-    desktop.py scroll <up|down> [n]
+    desktop.py scroll <up|down> [n]          the window in front (the pointer is put on it first)
     desktop.py move <x> <y>
     desktop.py screenshot [path]             PNG of the whole screen; prints {"path", "width", "height"}
     desktop.py elements                      clickable controls of the active window: [{"n", "name", "type", "x", "y"}]
@@ -22,10 +22,14 @@ calls it to act on what it sees in a screenshot. Every command prints JSON.
 Windows is the first target (pywinauto for UI Automation, pyautogui for input).
 On macOS and Linux the input and screenshot parts work through pyautogui;
 window listing falls back to what pygetwindow or wmctrl can tell.
+
+The libraries live in OneButton's own Python environment (.venv). Run by any other
+Python that lacks them, this file hands the order over to that environment.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -34,6 +38,8 @@ import time
 from pathlib import Path
 
 WIN = os.name == "nt"
+ROOT = Path(__file__).resolve().parent.parent.parent
+NEEDS = ["pyautogui"] + (["pywinauto"] if WIN else [])
 CLICKABLE = {"Button", "Hyperlink", "MenuItem", "TabItem", "ListItem", "TreeItem", "CheckBox", "RadioButton",
              "ComboBox", "Edit", "SplitButton", "Image", "Text", "DataItem", "Document"}
 
@@ -46,6 +52,27 @@ def out(obj) -> int:
 def fail(msg: str) -> int:
     print(json.dumps({"error": msg}, ensure_ascii=False))
     return 1
+
+
+# ---- the right Python -----------------------------------------------------------
+def own_python(root: Path | None = None) -> str | None:
+    """The interpreter of the install's environment, or None when there is none."""
+    root = ROOT if root is None else root
+    exe = root / ".venv" / ("Scripts/python.exe" if WIN else "bin/python")
+    return str(exe) if exe.is_file() else None
+
+
+def hand_over(argv: list[str], env=None) -> list[str] | None:
+    """The command that runs this same order under OneButton's own Python, or None to carry on here.
+
+    Claude calls this file as `python ...`, and that python is whichever comes first on the PATH:
+    usually one without pyautogui or pywinauto.
+    """
+    env = os.environ if env is None else env
+    if env.get("ONEBUTTON_DESKTOP_CHILD") or all(importlib.util.find_spec(m) for m in NEEDS):
+        return None
+    own = own_python()
+    return [own, str(Path(__file__).resolve()), *argv] if own else None
 
 
 # ---- windows ------------------------------------------------------------------
@@ -182,32 +209,52 @@ def click(x: int | None, y: int | None, how: str = "left") -> int:
     return out({"clicked": [x, y], "how": how})
 
 
-def _front_window_centre() -> tuple[int, int] | None:
-    """The middle of the window in front, so the wheel turns there and not wherever the pointer was left."""
+def front_window_rect() -> tuple[int, int, int, int] | None:
+    """(left, top, right, bottom) of the window in front, in screen pixels, or None when it cannot be told."""
     try:
         if WIN:
             import ctypes
             from ctypes import wintypes
-            rect = wintypes.RECT()
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-            if hwnd and ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)) and rect.right > rect.left:
-                return (rect.left + rect.right) // 2, (rect.top + rect.bottom) // 2
-            return None
+            rect = wintypes.RECT()
+            if not hwnd or not ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                return None
+            return rect.left, rect.top, rect.right, rect.bottom
         import pygetwindow as gw
         w = gw.getActiveWindow()
-        return (int(w.left + w.width // 2), int(w.top + w.height // 2)) if w and getattr(w, "width", 0) else None
+        if not w or not getattr(w, "width", 0):
+            return None
+        return int(w.left), int(w.top), int(w.left + w.width), int(w.top + w.height)
     except Exception:
         return None
+
+
+def scroll_point(rect: tuple[int, int, int, int] | None) -> tuple[int, int] | None:
+    """The middle of a window, where the pointer goes before the wheel turns. None for no window or a sliver."""
+    if not rect:
+        return None
+    left, top, right, bottom = rect
+    if right - left < 50 or bottom - top < 50:
+        return None
+    return (left + right) // 2, (top + bottom) // 2
 
 
 def scroll(direction: str, n: int = 5) -> int:
     """Turn the wheel over the window in front. One unit is about a tenth of a screen of text."""
     import pyautogui
-    where = _front_window_centre()
-    if where:
-        pyautogui.moveTo(*where)
+    # The wheel goes to whatever is under the pointer, and with no mouse in use the pointer is
+    # wherever the last click left it, often on another window or another monitor. Put it on the
+    # window in front first, so "baja" moves what the user is looking at.
+    at = scroll_point(front_window_rect())
+    if at:
+        if WIN:
+            import ctypes
+            ctypes.windll.user32.SetCursorPos(int(at[0]), int(at[1]))
+        else:
+            pyautogui.moveTo(*at)
+        time.sleep(0.05)
     pyautogui.scroll(n * (1 if direction == "up" else -1) * 100 if WIN else n * (1 if direction == "up" else -1))
-    return out({"scrolled": direction, "n": n})
+    return out({"scrolled": direction, "n": n, "at": list(at) if at else None})
 
 
 def move(x: int, y: int) -> int:
@@ -334,6 +381,9 @@ def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
         return 2
+    other = hand_over(argv)
+    if other:
+        return subprocess.call(other, env=dict(os.environ, ONEBUTTON_DESKTOP_CHILD="1"))
     cmd, args = argv[0], argv[1:]
     try:
         if cmd == "windows":

@@ -38,7 +38,7 @@ from . import __version__, auth, commands, conversations, desktop_commands, hard
 from .config import LOCAL_DIR, WORKSPACE_DIR, load, save_local
 from .gestures import (A_CANCEL, A_HELP, A_NO, A_REASSURE, A_REPEAT, A_STOP, A_TALK, A_YES,
                        CONFIRMING, IDLE, LONG, NO, RECORDING, SHORT, TALK, THINKING, help_text, interpret)
-from .lang import L, language, set_language
+from .lang import L, SUPPORTED, language, set_language
 from .lang import helper as helper_of
 from .lang import name as language_name
 
@@ -100,6 +100,7 @@ class Loop:
         self.recorder = Recorder(cfg)
         self.transcriber = Transcriber(cfg)
         self.agent = Agent(cfg)
+        self.agent.on_denied = self.note_denied
 
     # ---- helpers -------------------------------------------------------
     def log(self, who: str, text: str) -> None:
@@ -111,6 +112,13 @@ class Loop:
                 fh.write(f"{stamp} {who}: {text.strip()}\n")
         except OSError:
             pass
+
+    def note_denied(self, refused: list[str]) -> None:
+        """Claude Code refused these tool calls: they are outside the allow list in claude/settings.json.
+        Kept in the log and shown in the terminal, so a helper sees exactly what would have to be allowed."""
+        for what in refused:
+            self.log("PERMISO", what)
+            print(f"[permiso] Claude Code no tiene permiso para: {what}", file=sys.stderr, flush=True)
 
     def screen_look(self) -> dict:
         """Theme, layout and text size for the page. The "glasses" preset suits OLED display glasses."""
@@ -169,8 +177,9 @@ class Loop:
             pass
 
     def screen_try(self, text: str) -> bool:
-        """Offer a short utterance to the screen first (panel names, "lee ..."). True if it took it."""
-        if self.dry_run or len(commands.normalize(text).split()) > 4:
+        """Offer a short utterance to the screen first (panel names, "baja", "sube", "lee ...").
+        True if it took it."""
+        if self.dry_run or len(commands.normalize(text).split()) > 6:
             return False
         if time.monotonic() < self.screen_alive_until:
             return False
@@ -219,7 +228,8 @@ class Loop:
                 if self.screen.available():
                     break
                 time.sleep(0.1)
-            self.screen.post({"type": "config", "panels": self.panels, "lang": language(), **self.screen_look()})
+            self.screen.post({"type": "config", "panels": self.panels, "lang": language(),
+                              "desktop": self.desktop_enabled, **self.screen_look()})
         for name in self.cfg.get("modules") or []:
             script = MODULES_DIR / name / "start.py"
             if script.exists():
@@ -836,6 +846,8 @@ class Loop:
             return
         if self.desktop_enabled and not self.dry_run:
             act = self.desktop_parse(text, conv.dictating)
+            if act and act["action"] == "type" and self.screen.state().get("focused"):
+                act = None   # the OneButton page is in front: there is no application to type into, so it is for Claude
             if act:
                 self.log("EQUIPO", json.dumps(act, ensure_ascii=False))
                 self.desktop_act(act)
@@ -1028,8 +1040,29 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--check-auth", action="store_true", help="Print Claude Code's sign-in status and exit.")
     ap.add_argument("--setup", action="store_true", help="Run the voice-guided hardware setup and exit.")
     ap.add_argument("--hardware", action="store_true", help="Print detected screens and microphones and exit.")
+    ap.add_argument("--voices", action="store_true",
+                    help="Print the voice that will speak and the installed voices of the language spoken, and "
+                         "the same for the other language; say a test sentence, and exit. Downloads the Piper "
+                         "voice of a language the system has no voice for.")
     args = ap.parse_args(argv)
     cfg = load()
+    if args.voices:
+        from .tts import Speaker
+        LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+        set_language(cfg["speak_language"])
+        speaker = Speaker(cfg)
+        info = speaker.describe()
+        # The other language too: "speak Spanish" / "habla en inglés" switches at any moment, and a
+        # voice that has to be downloaded should be fetched now, by the helper, not then.
+        others = []
+        for code in SUPPORTED:
+            if code != language():
+                speaker.set_language(code)
+                others.append(speaker.describe())
+        speaker.set_language(language())
+        print(json.dumps(dict(info, other_languages=others), indent=2, ensure_ascii=False))
+        speaker.say(L("This is the OneButton voice.", "Esta es la voz de OneButton."))
+        return 0 if info["speaks_the_language"] else 1
     if args.hardware:
         print(json.dumps(hardware.detect(), indent=2, ensure_ascii=False))
         return 0

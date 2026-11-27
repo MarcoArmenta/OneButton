@@ -1,13 +1,17 @@
 /* The OneButton screen: panels, the global ring, reading aloud, and event routing.
  *
  * Events from the loop (POST /event):
- *   {type:"config", panels:[...], lang} which panels exist, and the language the page speaks ("en" or "es")
+ *   {type:"config", panels:[...], lang, desktop}   which panels exist; lang: the language the page speaks
+ *                                       ("en" or "es"); desktop: the computadora module is on
  *   {type:"panel", name}                show a panel
  *   {type:"menu"}                       open the global ring      {type:"exit"} close everything
  *   {type:"enter"}                      board editing (board.js)  {type:"latex", text}
  *   {type:"button", button, gesture}    {type:"voice", text}
  *   {type:"read", from?}                read the current panel aloud
- * The page reports {mode, panel, handled, seq_handled, ...} to POST /state after every event.
+ * A voice event that is a scroll ("baja", "scroll down", "al final del pizarrón", "otra vez") or names
+ * a panel is handled here.
+ * The page reports {mode, panel, handled, seq_handled, ...} to POST /state after every event, and
+ * tells the server on every poll whether it is the window in front (/status?f=1).
  */
 (function () {
   "use strict";
@@ -17,17 +21,21 @@
   // Panel ids and file names stay Spanish (they are folders in his workspace); labels follow the language,
   // and each panel answers to its name in both.
   const PANELS = {
-    conversacion: { label: "Conversación", en: "Conversation", words: ["conversacion", "charla", "respuesta", "respuestas", "conversation", "chat"], doc: "conversacion.md" },
-    pizarron:      { label: "Pizarrón", en: "Board", words: ["pizarron", "pizarra", "formulas", "board", "blackboard", "whiteboard"], doc: "pizarron/pizarron.md" },
-    escritorio:   { label: "Escritorio", en: "Desk", words: ["escritorio", "escrito", "manuscrito", "articulo", "texto", "desk", "writing desk", "manuscript", "paper", "draft"], doc: null },
+    conversacion: { label: "Conversación", en: "Conversation", words: C.PANEL_WORDS.conversacion, doc: "conversacion.md" },
+    pizarron:      { label: "Pizarrón", en: "Board", words: C.PANEL_WORDS.pizarron, doc: "pizarron/pizarron.md" },
+    escritorio:   { label: "Escritorio", en: "Desk", words: C.PANEL_WORDS.escritorio, doc: null },
   };
   const WHO = { "Tú": ["You", "Tú"], "Asistente": ["Assistant", "Asistente"] };   // the file says it in Spanish
   const READ_RE = /\b(lee|leer|leeme|read|read it)\b/;
+  const AGAIN_WINDOW_MS = 300000;   // as SCROLL_AGAIN_WINDOW in the loop: how long "otra vez" still means the last scroll
 
   const S = {
     panels: ["conversacion", "pizarron", "escritorio"],
     panel: "conversacion",
     layout: "tabs",
+    desktop: false,          // the computadora module is on: a bare "baja" may be meant for another application
+    pos: {},                 // tabs layout: where each panel was left
+    lastScroll: null,        // {cmd, at}: the last scroll done here, which "otra vez" / "again" repeats
     mode: "idle",            // idle | menu | reading | board (board.js owns its own modes)
     ring: [], ringIndex: 0,
     docs: {},                // path -> text
@@ -60,6 +68,33 @@
     if (el) el.textContent = text;
   }
   window.screenSay = say;
+
+  // ---- scrolling ---------------------------------------------------------------
+  // tabs layout: the window scrolls, so each panel's place is kept and put back when it is shown
+  // again. wide layout: every panel scrolls on its own.
+  const want = {};           // panel -> an element to bring to the top, or "end"; done once the panel is on screen
+  function scrollerOf(name) { return S.layout === "wide" ? document.getElementById("panel-" + name) : document.scrollingElement; }
+  function onScreen(name) { return S.layout === "wide" || S.panel === name; }
+  function settle(name) {
+    const w = want[name];
+    if (!w || !onScreen(name)) return;
+    delete want[name];
+    const sc = scrollerOf(name);
+    if (w === "end" || !w.isConnected) sc.scrollTop = sc.scrollHeight;
+    else w.scrollIntoView({ block: "start" });
+  }
+
+  function scrollPanel(cmd) {
+    if (cmd.panel && cmd.panel !== S.panel) showPanel(cmd.panel, true);
+    const sc = scrollerOf(S.panel);
+    const view = S.layout === "wide" ? sc.clientHeight : window.innerHeight - 150;   // less the tabs and the status line
+    const max = Math.max(0, sc.scrollHeight - sc.clientHeight);
+    const from = sc.scrollTop;
+    let to = cmd.dir === "top" ? 0 : cmd.dir === "bottom" ? max : from + (cmd.dir === "down" ? 1 : -1) * cmd.steps * 0.8 * view;
+    to = Math.max(0, Math.min(max, to));
+    if (Math.abs(to - from) < 2) { say(cmd.dir === "down" || cmd.dir === "bottom" ? T("This is the end.", "Ya es el final.") : T("This is the top.", "Ya es el principio.")); return; }
+    sc.scrollTo({ top: to, behavior: "smooth" });
+  }
 
   // ---- rendering -------------------------------------------------------------
   function protectMath(md) {
@@ -109,15 +144,29 @@
       return "<div class='turn " + (m[2] === "Tú" ? "me" : "bot") + "'><div class='who'>" + T.apply(null, WHO[m[2]]) + " <span>" + m[1] + "</span></div>" + mdToHtml(m[3]) + "</div>";
     }).join("") || "<p class='empty'>" + T("Press the button and speak. The replies appear here.", "Pulsa el botón y habla. Las respuestas aparecen aquí.") + "</p>";
     typeset(el);
-    el.lastElementChild && el.lastElementChild.scrollIntoView({ block: "end" });
+    want.conversacion = "end"; settle("conversacion");
   }
 
-  function renderBoard(text, sel) {
+  // The first block of the pizarrón that differs from what was there before, so that something
+  // just written is shown from its beginning and "baja" carries on from there.
+  let boardBefore = null;
+  function firstChange(el) {
+    const now = Array.from(el.children).map(c => c.outerHTML);
+    const before = boardBefore; boardBefore = now;
+    if (!before) return null;
+    let i = 0;
+    while (i < now.length && i < before.length && now[i] === before[i]) i++;
+    return i < now.length ? el.children[i] : null;
+  }
+
+  // fresh: the file changed on disk (as opposed to a redraw while a formula is being edited)
+  function renderBoard(text, sel, fresh) {
     const el = document.getElementById("panel-pizarron");
     if (sel) { const f = sel.f, h = sel.h; text = text.slice(0, f.start) + C.highlight(f.inner, h, sel.color) + text.slice(f.end); }
     el.innerHTML = text.trim() ? mdToHtml(text) : "<p class='empty'>" + T("The board is empty. Ask for something with mathematics and it will appear here.", "Pizarrón vacío. Pide algo con matemáticas y aparecerá aquí.") + "</p>";
     typeset(el);
-    if (!sel && el.lastElementChild) el.lastElementChild.scrollIntoView({ block: "end" });
+    if (sel) return;
+    want.pizarron = (fresh && firstChange(el)) || "end"; settle("pizarron");
   }
   window.renderBoardWithHighlight = (text, sel) => renderBoard(text, sel);
 
@@ -130,7 +179,7 @@
       || "<p class='empty'>" + T("The page is empty. Dictate, and your words are written down exactly as you say them. Say 'review' when you want suggestions.", "El escrito está vacío. Dicta, y tus palabras quedan escritas tal como las dices. Di 'revisión' cuando quieras sugerencias.") + "</p>";
     typeset(el);
     if (S.reading) highlightBlock(S.reading.i);
-    else if (el.lastElementChild) el.lastElementChild.scrollIntoView({ block: "end" });   // what he just dictated stays in view
+    else if (loaded) { want.escritorio = "end"; settle("escritorio"); }   // what he just dictated stays in view
   }
 
   function highlightBlock(i) {
@@ -148,9 +197,15 @@
 
   function showPanel(name, silent) {
     if (!PANELS[name] || !S.panels.includes(name)) return;
+    const moved = name !== S.panel && S.layout !== "wide";
+    if (moved) S.pos[S.panel] = document.scrollingElement.scrollTop;
     S.panel = name;
     document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
     document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.panel === name));
+    // Something new waiting in this panel wins; otherwise back to where it was left (the newest
+    // end of the conversation and the pizarrón, the top of the manuscript, the first time).
+    if (moved && !want[name]) document.scrollingElement.scrollTop = name in S.pos ? S.pos[name] : (name === "escritorio" ? 0 : 1e9);
+    settle(name);
     if (!silent) say(plabel(name) + ".");
   }
 
@@ -173,7 +228,7 @@
     for (const n of S.panels) items.push({ id: "panel:" + n, label: plabel(n), words: PANELS[n].words, action: () => { closeRing(); showPanel(n); } });
     if (S.panels.includes("pizarron")) items.push({ id: "board", label: T("Edit formula", "Editar fórmula"), words: ["editar", "formula", "editar formula", "edit", "edit formula"], action: () => { closeRing(); showPanel("pizarron", true); S.mode = "board"; BoardUI.handle({ type: "enter", seq: S.lastSeq }); } });
     items.push({ id: "read", label: T("Read", "Leer"), words: ["leer", "lee", "leeme", "read"], action: () => { closeRing(); startReading(); } });
-    items.push({ id: "help", label: T("Help", "Ayuda"), words: ["ayuda", "help"], action: () => { closeRing(); say(T("Say the name of a panel: conversation, board or desk. Say edit formula to change a formula by its number. Say read to have the panel read to you. Press button two to move on and hold button one to choose. Hold button two to leave.", "Di el nombre de un panel: conversación, pizarrón o escritorio. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir.")); } });
+    items.push({ id: "help", label: T("Help", "Ayuda"), words: ["ayuda", "help"], action: () => { closeRing(); say(T("Say the name of a panel: conversation, board or desk. Say scroll down or scroll up to move through the panel, to the top or to the end to go to either end. Say edit formula to change a formula by its number. Say read to have the panel read to you. Press button two to move on and hold button one to choose. Hold button two to leave.", "Di el nombre de un panel: conversación, pizarrón o escritorio. Di baja o sube para moverte por el panel, al principio o al final para ir a un extremo. Di editar fórmula para cambiar una fórmula por su número. Di leer para que te lea el panel. Pulsa el dos para pasar y mantén el uno para elegir. Mantén el dos para salir.")); } });
     items.push({ id: "exit", label: T("Exit", "Salir"), words: ["salir", "cerrar", "listo", "exit", "close", "done"], action: () => { closeRing(); } });
     return items;
   }
@@ -254,10 +309,27 @@
       if (/\b(para|basta|alto|stop|silencio|enough|quiet)\b/.test(t)) { stopReading(T("Stopped.", "Parado.")); return true; }
       return false;
     }
-    // idle: a short utterance naming a panel, or "lee ...", is handled here; sentences go to Claude
-    if (t.split(" ").length > 4) return false;
-    for (const n of S.panels) if (C.findItem(text, [{ words: PANELS[n].words }])) { showPanel(n); return true; }
-    if (READ_RE.test(t)) { startReading(C.parseNumber(text)); return true; }
+    // idle: scrolling, a panel by its name, or "lee ..." / "read ..." are handled here; sentences go to Claude
+    const scr = C.parseScroll(text, S.panels);
+    if (scr) {
+      // With the computadora module on, a bare "baja" is for whatever application is in front. It is
+      // for this page when the page is in front, or when the panel is named ("baja el pizarrón").
+      if (!scr.panel && S.desktop && !document.hasFocus()) { S.lastScroll = null; return false; }
+      S.lastScroll = { cmd: scr, at: Date.now() };
+      scrollPanel(scr); return true;
+    }
+    if (C.parseAgain(text)) {
+      // "otra vez", "again": the last scroll done here, while it is recent and still about this page.
+      // Otherwise it is the loop's: it repeats the last scroll of another application, or asks Claude.
+      const last = S.lastScroll;
+      if (!last || Date.now() - last.at > AGAIN_WINDOW_MS) return false;
+      if (!last.cmd.panel && S.desktop && !document.hasFocus()) return false;
+      last.at = Date.now();
+      scrollPanel(last.cmd); return true;
+    }
+    const p = C.parsePanel(text, S.panels);
+    if (p) { showPanel(p); return true; }
+    if (t.split(" ").length <= 4 && READ_RE.test(t)) { startReading(C.parseNumber(text)); return true; }
     return false;
   }
 
@@ -291,7 +363,7 @@
 
   function handle(ev) {
     let handled = true;
-    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); setLanguage(ev.lang); renderTabs(); applyLook(ev); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
+    if (ev.type === "config") { if (Array.isArray(ev.panels) && ev.panels.length) S.panels = ev.panels.filter(p => PANELS[p]); if ("desktop" in ev) S.desktop = !!ev.desktop; setLanguage(ev.lang); renderTabs(); applyLook(ev); if (!S.panels.includes(S.panel)) showPanel(S.panels[0], true); }
     else if (ev.type === "panel") showPanel(ev.name);
     else if (ev.type === "menu") { if (S.mode === "board") { BoardUI.exit(); } if (S.mode === "reading") stopReading(""); openRing(); }
     else if (ev.type === "exit") { if (S.mode === "board") BoardUI.exit(); if (S.mode === "reading") stopReading(""); closeRing(); S.mode = "idle"; }
@@ -312,7 +384,7 @@
   // ---- polling ---------------------------------------------------------------------
   let failures = 0;
   function tick() {
-    fetch("/status", { cache: "no-store" }).then(r => r.json()).then(st => {
+    fetch("/status?f=" + (document.hasFocus() ? 1 : 0), { cache: "no-store" }).then(r => r.json()).then(st => {
       failures = 0; document.getElementById("bar").className = "";
       if (st.manuscript !== S.manuscript) { S.manuscript = st.manuscript; renderManuscript(); }
       const changed = [];
@@ -320,7 +392,7 @@
       const loads = changed.map(path => fetch("/doc/" + path, { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => { S.docs[path] = t; return path; }));
       Promise.all(loads).then(paths => {
         if (paths.includes("conversacion.md")) renderConversation();
-        if (paths.includes("pizarron/pizarron.md")) { BoardUI.setText(S.docs["pizarron/pizarron.md"]); if (S.mode !== "board") renderBoard(S.docs["pizarron/pizarron.md"]); }
+        if (paths.includes("pizarron/pizarron.md")) { BoardUI.setText(S.docs["pizarron/pizarron.md"]); if (S.mode !== "board") renderBoard(S.docs["pizarron/pizarron.md"], null, true); }
         if (S.manuscript && paths.includes(S.manuscript)) renderManuscript();
         autoSwitch(paths);
       });
@@ -330,19 +402,22 @@
     }).catch(() => { if (++failures > 3) document.getElementById("bar").className = "stale"; });
   }
 
-  // Show what just changed: a formula written during a turn beats the reply text; a reply beats nothing.
-  const turnChanges = new Set();
+  // Show what just changed. Something written on the pizarrón or in the manuscript is shown at once,
+  // while Claude is still working; a finished reply shows the conversation unless the turn wrote
+  // somewhere else. What is already there when the page opens is not a change.
+  let loaded = false;
+  const written = new Set();
   function autoSwitch(paths) {
+    if (!loaded) { loaded = true; return; }
     if (S.mode !== "idle" || !paths.length) return;
-    for (const p of paths) if (p !== "conversacion.md" && p !== "escritos/actual") turnChanges.add(p);
+    if (paths.includes("pizarron/pizarron.md") && S.panels.includes("pizarron")) { written.add("pizarron"); showPanel("pizarron", true); }
+    if (S.manuscript && paths.includes(S.manuscript) && S.panels.includes("escritorio")) { written.add("escritorio"); showPanel("escritorio", true); }
     if (paths.includes("conversacion.md")) {
       const conv = S.docs["conversacion.md"] || "";
       const replied = /## \d\d:\d\d Asistente\n?[\s\S]*$/.test(conv.split(/^(?=## )/m).pop() || "");
       if (replied) {
-        if (S.manuscript && turnChanges.has(S.manuscript)) showPanel("escritorio", true);
-        else if (turnChanges.has("pizarron/pizarron.md")) showPanel("pizarron", true);
-        else showPanel("conversacion", true);
-        turnChanges.clear();
+        if (!written.size) showPanel("conversacion", true);
+        written.clear();
       }
     }
   }

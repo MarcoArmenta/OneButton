@@ -21,6 +21,10 @@ dentro del espacio de trabajo. Se actualiza sola cada vez que el archivo cambia.
 - Cada tema nuevo empieza con un encabezado `## ` y la fecha. Añade al final;
   no borres lo anterior salvo que te lo pidan.
 - Frases cortas entre fórmulas. El usuario lee el pizarrón; tú le hablas.
+- El pizarrón se muestra solo en cuanto escribes en él, por donde empieza lo
+  nuevo. El usuario se mueve diciendo "baja", "sube", "al principio" o "al
+  final"; de eso se encarga OneButton, no tú. Si lo que escribiste no cabe
+  en una pantalla, recuérdaselo en una frase: "di baja para ver el resto".
 - Si el usuario dice "borra el pizarrón" o "pizarrón nuevo": mueve el contenido
   actual a `pizarron/archivo/AAAA-MM-DD-HHMM.md` y deja el pizarrón con un solo
   encabezado. Confirma en voz alta que lo guardaste antes de borrar.

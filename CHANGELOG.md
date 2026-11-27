@@ -37,7 +37,10 @@ con confirmación, y deshacer; "actualiza Claude" actualiza Claude Code; "inicia
 desde el navegador, pulsando Autorizar por voz. Una pantalla con paneles: la
 conversación, el pizarrón de matemáticas con edición por números ("barra en el
 siete"), y el escritorio para dictar artículos en tu propio estilo y corregir
-por párrafo. Lee en voz alta cualquier panel. Se puede hablar a Claude mientras trabaja. Varias conversaciones a la vez: "nueva
+por párrafo. Lee en voz alta cualquier panel. "Baja", "sube", "al principio" y "al final" mueven
+lo que hay en pantalla, y el pizarrón aparece solo en cuanto se escribe en él. Habla siempre con
+una voz del idioma en que habla: la del sistema o, si no la hay, una propia que descarga una sola vez.
+Se puede hablar a Claude mientras trabaja. Varias conversaciones a la vez: "nueva
 conversación" abre otra mientras la primera sigue trabajando, "conversación
 uno" vuelve. La primera vez pide el botón
 izquierdo y el derecho, comprueba el micrófono y mira las pantallas; con dos,
@@ -52,7 +55,10 @@ code or formulas symbol by symbol. Voice update with confirmation, and undo; "ac
 browser, clicking Authorize by voice.
 A screen with panels: the conversation, the maths board with editing by
 number ("barra en el siete"), and the writing desk for dictating papers in
-your own style and correcting by paragraph. Reads any panel aloud. Talk to Claude while it works. Several conversations at once: "nueva conversación"
+your own style and correcting by paragraph. Reads any panel aloud. "Baja", "sube", "al principio"
+and "al final" scroll what is on screen, and the pizarrón shows itself as soon as something is
+written on it. Always speaks with a voice of the language it is speaking: the system's, or an offline
+one downloaded once when the system has none. Talk to Claude while it works. Several conversations at once: "nueva conversación"
 opens another while the first keeps working, "conversación uno" goes back. On first run it asks for the left and right buttons,
 checks the microphone and looks at the screens; with two, the page fills the
 second one. Filters tremor on the buttons and handles a soft voice. Controls any

@@ -40,6 +40,22 @@ class AgentSettingsTests(unittest.TestCase):
                 self.assertTrue(any(r.startswith("Read(//") and "local" in r for r in deny))
                 self.assertTrue(all("\\" not in r for r in deny), "deny paths must be POSIX-style")
 
+    def test_web_lookups_are_allowed_in_every_documented_form(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(agent_mod, "LOCAL_DIR", Path(d) / "local"):
+                a = agent_mod.Agent(dict(DEFAULTS, claude_bin="definitely-not-a-real-binary"))
+                allow = json.loads(Path(a.settings_file()).read_text(encoding="utf-8"))["permissions"]["allow"]
+                for rule in ("WebSearch", "WebFetch", "WebFetch(domain:*)"):
+                    self.assertIn(rule, allow)
+
+    def test_path_rules_use_the_form_claude_code_matches_on_windows(self):
+        from pathlib import PurePosixPath, PureWindowsPath
+        r = agent_mod.path_rules
+        self.assertEqual(r(PurePosixPath("/home/ana/OneButton/local")), ["///home/ana/OneButton/local"])
+        # C:\Users\Ana is matched as /c/Users/Ana; the old spelling is kept beside it
+        self.assertEqual(r(PureWindowsPath("C:/Users/Ana/OneButton/local")),
+                         ["//c/Users/Ana/OneButton/local", "//C:/Users/Ana/OneButton/local"])
+
     def test_missing_binary_is_a_spoken_message_not_a_crash(self):
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(agent_mod, "LOCAL_DIR", Path(d) / "local"), \
@@ -64,6 +80,24 @@ class PureTests(unittest.TestCase):
         self.assertIn("Marco", r({"subtype": "error_during_execution", "errors": ["Not logged in: run /login"]}, "Marco"))
         self.assertIn("devolvió un error", r({"subtype": "error_during_execution", "errors": ["boom"]}, "Marco"))
         self.assertEqual(r({"subtype": "success", "is_error": True, "result": "no puedo"}, "Marco"), "no puedo")
+
+    def test_denied_tool_calls_are_named_for_the_log(self):
+        d = {"permission_denials": [
+            {"tool_name": "Bash", "tool_use_id": "t1", "tool_input": {"command": "pip install pyautogui", "description": "x"}},
+            {"tool_name": "WebFetch", "tool_use_id": "t2", "tool_input": {"url": "https://www.google.com/search?q=clima", "prompt": "p"}},
+            {"tool_name": "Read", "tool_use_id": "t3", "tool_input": {"file_path": "C:/Users/ana/x.txt"}}]}
+        self.assertEqual(agent_mod.denials(d), ["Bash: pip install pyautogui", "WebFetch: https://www.google.com/search?q=clima",
+                                                "Read: C:/Users/ana/x.txt"])
+        self.assertEqual(agent_mod.denials({"permission_denials": []}), [])
+        self.assertEqual(agent_mod.denials({}), [])
+        self.assertEqual(agent_mod.denials({"permission_denials": "raro"}), [])
+
+    def test_claude_runs_python_from_this_environment(self):
+        from onebutton import auth
+        env = auth.subprocess_env({"PATH": os.pathsep.join(["/usr/bin", "/bin"])})
+        self.assertEqual(env["PATH"].split(os.pathsep)[0], str(Path(sys.executable).parent),
+                         "so `python ../modules/computadora/desktop.py` finds pyautogui and pywinauto")
+        self.assertEqual(auth.subprocess_env(env)["PATH"], env["PATH"], "not added twice")
 
 
 def wait_until(pred, seconds=5.0):
@@ -118,6 +152,16 @@ class SessionTests(unittest.TestCase):
         self.assertIn("--session-id", argv[0]); self.assertIn("sid-1", argv[0])
         self.assertIn("--input-format", argv[0]); self.assertIn("stream-json", argv[0]); self.assertIn("--verbose", argv[0])
         self.assertFalse(self.agent.working("sid-1"))
+
+    def test_a_refused_tool_call_is_reported_before_the_reply(self):
+        seen, got = [], []
+        self.agent.on_denied = seen.append
+        self.agent.send("s1", "pide pip install pyautogui", got.append)
+        self.assertTrue(wait_until(lambda: got))
+        self.assertEqual(seen, [["Bash: pip install pyautogui"]])
+        self.agent.send("s1", "hola", got.append)
+        self.assertTrue(wait_until(lambda: len(got) == 2))
+        self.assertEqual(len(seen), 1, "a turn with nothing refused reports nothing")
 
     def test_conversations_are_separate_processes(self):
         a, b = [], []

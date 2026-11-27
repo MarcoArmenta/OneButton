@@ -18,6 +18,24 @@ class ParseTests(unittest.TestCase):
         self.assertIsNone(parse("ve a la pizarra"))
         self.assertIsNone(parse("muestra el escritorio"))
 
+    def test_anything_about_a_panel_goes_to_claude(self):
+        # "escribe ..." types into the focused application; said about the pizarrón it is a request to Claude
+        self.assertIsNone(parse("escribe en el pizarrón x al cuadrado más uno"))
+        self.assertIsNone(parse("escribe la integral de x al cuadrado en el pizarrón"))
+        self.assertIsNone(parse("dicta en el pizarrón el teorema de Pitágoras"))
+        self.assertIsNone(parse("muestra en el pizarrón la serie geométrica"))
+        self.assertIsNone(parse("escribe en el manuscrito que mañana seguimos"))
+        self.assertIsNone(parse("abre el escrito de la tesis"))
+
+    def test_the_same_in_english_without_swallowing_ordinary_typing(self):
+        self.assertIsNone(parse("type x squared plus one on the board"))
+        self.assertIsNone(parse("type the theorem in my paper"))
+        self.assertIsNone(parse("open the paper about quivers"))
+        self.assertIsNone(parse("go to the writing desk"))
+        # the English names are everyday words: text that merely contains one is still typed
+        self.check("type the paper is due on friday", {"action": "type", "text": "the paper is due on friday"})
+        self.check("type we should chat tomorrow", {"action": "type", "text": "we should chat tomorrow"})
+
     def test_numbers_and_clicks(self):
         self.check("muestra los números", {"action": "overlay"})
         self.check("pulsa el siete", {"action": "click_number", "n": 7})

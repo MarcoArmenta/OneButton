@@ -214,10 +214,25 @@ def _shot(m): return {"action": "screenshot"}
     r"|what(?: s| is) on (?:the |my )?screen|(?:read|describe) the screen")
 def _describe(m): return {"action": "describe"}
 
-# words that mean the same thing as a verb above but must never be stolen from Claude or the page
-_RESERVED_TARGETS = {"pizarron", "pizarra", "escritorio", "conversacion", "escrito", "manuscrito",
-                     "board", "blackboard", "desk", "writing desk", "conversation", "chat", "manuscript",
-                     "paper", "draft"}
+# The screen's own panels, in both languages. Typing, switching and opening are for other
+# applications: an utterance that names a panel ("escribe en el pizarrón ...", "abre el escrito ...",
+# "go to the board") is about OneButton itself and must reach the page or Claude, never the keyboard.
+_PANEL_WORDS_ES = {"pizarron", "pizarra", "escritorio", "conversacion", "escrito", "manuscrito"}
+_PANEL_WORDS_EN = {"board", "blackboard", "whiteboard", "desk", "conversation", "chat", "manuscript", "paper", "draft"}
+# The English names are everyday words, so typed text may well contain one ("type the paper is
+# due on Friday"): typing is about a panel only when it says where, "type ... on the board".
+_ON_PANEL_EN = re.compile(r"\b(?:on|in|to|onto|into) (?:the |my )?(?:writing )?(?:"
+                          + "|".join(sorted(_PANEL_WORDS_EN)) + r")\b")
+_APP_ACTIONS = {"type", "focus", "open"}
+
+
+def _about_a_panel(action: str, t: str) -> bool:
+    words = set(t.split())
+    if words & _PANEL_WORDS_ES:
+        return True
+    if action == "type":
+        return bool(_ON_PANEL_EN.search(t))
+    return bool(words & _PANEL_WORDS_EN)
 
 
 _ARTICLES = re.compile(r"^(?:a |al |a la |a el |la |el |los |las |un |una |mi |el programa |la aplicacion |la app "
@@ -236,9 +251,11 @@ def parse(text: str) -> dict | None:
         act = fn(m)
         if act is None:
             continue  # the verb matched but the argument did not; try the next pattern
+        if act["action"] in _APP_ACTIONS and _about_a_panel(act["action"], t):
+            return None
         if "target" in act:
             act["target"] = _ARTICLES.sub("", act["target"]).strip()
-            if act["target"] in _RESERVED_TARGETS or not act["target"]:
+            if not act["target"]:
                 return None
         return act
     return None

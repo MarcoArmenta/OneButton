@@ -27,7 +27,7 @@ run on the first user's machine. See [CHANGELOG.md](CHANGELOG.md).
 
 | Item | Notes |
 | --- | --- |
-| Computer | Windows 11 (first target; natural voices recommended), Windows 10, macOS, or Linux. On Linux under Wayland use `button_source: terminal`. |
+| Computer | Windows 11 (first target), Windows 10, macOS, or Linux. It speaks with a voice of the language it is speaking: one installed on the system, or else an offline Piper voice downloaded once. On Linux under Wayland use `button_source: terminal`. |
 | Microphone | A wireless lapel microphone, or a desk microphone near the user. Display glasses do not provide one. |
 | One or two accessible buttons | USB switches that send a key each, typically the space bar and Enter. Most "big button" switch interfaces do this out of the box. The first run learns them by side ("pulsa el de la izquierda", then the right one), so whoever places them never has to know which is which. One button is enough; the second adds yes and no without speech. |
 | Screen | One or two monitors, or USB-C display glasses (Xreal, Viture and similar). Looked at on every start: with two monitors the page opens full screen on the second and the terminal stays on the first; a wide virtual display switches to the `glasses` preset (true black, large type, all panels side by side). Full screen without a keyboard needs Edge or Chrome. |
@@ -120,6 +120,11 @@ and yes is the spoken word "adelante".
   **"escritorio"**, **"conversación"**) switch panels on the
   screen. **"Lee"** or **"lee el cinco"** reads the current panel aloud from
   the page, block by block; button 2 skips, a number jumps.
+- With the OneButton page in front, the same scrolling words move the panel
+  on screen, most of a screen at a time, and each panel comes back where it
+  was left. **"Scroll down the board"** / **"baja el pizarrón"** scrolls that
+  panel whatever is in front. What Claude writes on the board is shown at
+  once, from where the new part starts.
 - **"Actualiza"** checks for a new version, reads the changes aloud, and waits
   for a yes before installing. Anything else cancels.
 - **"Deshacer"** goes back to the previous version, after the same confirmation.

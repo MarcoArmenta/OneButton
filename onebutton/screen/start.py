@@ -7,9 +7,11 @@ Binds to 127.0.0.1 only. Routes:
     GET  /board.js             blackboard editing logic
     GET  /vendor/...           KaTeX and marked
     GET  /doc/<path>           a text file under the workspace    PUT /doc/<path>  replace it
-    GET  /status               {"seq": n, "docs": {path: mtime_ns}} for the docs the page watches
+    GET  /status               {"seq": n, "docs": {path: mtime_ns}} for the docs the page watches;
+                               the page adds ?f=1 or ?f=0: whether it is the window in front
     POST /event                the loop pushes {"type": ...}; GET /events?after=n returns newer ones
-    GET  /state                what the page last reported; POST /state sets it (never goes backwards)
+    GET  /state                what the page last reported, plus "focused" (the page said it was in
+                               front within the last few seconds); POST /state sets it (never goes backwards)
 
 Opens the browser once on first start unless ONEBUTTON_NO_BROWSER=1.
 """
@@ -22,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -115,6 +118,7 @@ def main() -> int:
     lock = threading.Lock()
     events: list[dict] = []
     state: dict = {"mode": "idle"}
+    focus = {"on": False, "at": 0.0}   # from the page's own polling, so a closed page stops counting
 
     def safe(rel: str) -> Path | None:
         rel = unquote(rel).lstrip("/")
@@ -163,6 +167,8 @@ def main() -> int:
                 else:
                     self._send(404, b"", "text/plain")
             elif path == "/status":
+                if "f=1" in query.split("&") or "f=0" in query.split("&"):
+                    focus.update(on="f=1" in query.split("&"), at=time.monotonic())
                 docs = {}
                 watched = list(WATCHED)
                 m = manuscript_path()
@@ -186,7 +192,7 @@ def main() -> int:
                     self._json(200, [e for e in events if e["seq"] > after][-50:])
             elif path == "/state":
                 with lock:
-                    self._json(200, state)
+                    self._json(200, dict(state, focused=focus["on"] and time.monotonic() - focus["at"] < 3))
             elif path.startswith("/vendor/") and ".." not in path:
                 f = (HERE / path.lstrip("/")).resolve()
                 if f.is_file() and HERE in f.parents:
