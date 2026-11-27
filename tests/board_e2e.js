@@ -21,6 +21,22 @@ async function waitHandled(seq) {
   }
   throw new Error("viewer did not handle event " + seq);
 }
+let p;
+const active = () => p.locator(".panel.active").getAttribute("id");
+const scrollTop = () => p.evaluate(() => document.scrollingElement.scrollTop);
+const panelTop = () => p.evaluate(() => document.getElementById("panel-pizarron").scrollTop);
+// a voice event, then wait for the smooth scroll it may have started to come to rest
+async function say(text) {
+  const st = await waitHandled(await post({ type: "voice", text }));
+  let last = -1;
+  for (let i = 0; i < 40; i++) {
+    await p.waitForTimeout(150);
+    const now = (await scrollTop()) + (await panelTop());
+    if (now === last) break;
+    last = now;
+  }
+  return st;
+}
 async function waitFile(pred) {
   for (let i = 0; i < 40; i++) {
     const t = fs.readFileSync(file, "utf8");
@@ -33,7 +49,7 @@ async function waitFile(pred) {
 (async () => {
   fs.writeFileSync(file, "# Pizarrón\n\n## Prueba\n\nSea $x_i^2 + y$ y luego\n\n$$\\frac{a+b}{c}$$\n");
   const b = await chromium.launch();
-  const p = await b.newPage();
+  p = await b.newPage();
   const errors = []; p.on("pageerror", e => errors.push(String(e)));
   await p.goto(base + "/", { waitUntil: "load" });
   await p.waitForTimeout(800);
@@ -44,15 +60,33 @@ async function waitFile(pred) {
   assert.strictEqual(await p.locator(".panel:visible").count(), 3, "wide layout shows every panel");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgb(0, 0, 0)", "glasses theme is true black");
   assert.strictEqual(await p.evaluate(() => getComputedStyle(document.body).fontSize), "30px");
-  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs" }));
+  // the page speaks English unless told otherwise, and answers to panel names in both languages
+  assert.deepStrictEqual(await p.locator("#tabs button").allInnerTexts(), ["Conversation", "Board", "Desk"]);
+  let en = await waitHandled(await post({ type: "voice", text: "board" }));
+  assert.strictEqual(en.panel, "pizarron"); assert.strictEqual(en.handled, true);
+  en = await waitHandled(await post({ type: "voice", text: "escritorio" }));
+  assert.strictEqual(en.panel, "escritorio");
+  en = await waitHandled(await post({ type: "voice", text: "conversation" }));
+  assert.strictEqual(en.panel, "conversacion");
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs", lang: "es" }));
+  assert.deepStrictEqual(await p.locator("#tabs button").allInnerTexts(), ["Conversación", "Pizarrón", "Escritorio"]);
   assert.strictEqual(await p.locator(".panel:visible").count(), 1, "tabs layout shows one panel");
   fs.writeFileSync(path.join(ws, "conversacion.md"), "## 10:00 Tú\n\nhola\n\n## 10:00 Asistente\n\nHola, **José**. $x^2$\n\n");
   await p.waitForTimeout(900);
   assert.ok((await p.locator("#panel-conversacion .turn").count()) === 2, "conversation turns rendered");
+  assert.strictEqual(await active(), "panel-conversacion", "a reply shows the conversation; the board that was already there is not news");
   let st = await waitHandled(await post({ type: "voice", text: "pizarrón" }));
   assert.strictEqual(st.panel, "pizarron"); assert.strictEqual(st.handled, true);
   st = await waitHandled(await post({ type: "voice", text: "escribe en el pizarrón la suma de los primeros n números" }));
   assert.strictEqual(st.handled, false, "long sentences are not panel switches");
+  await waitHandled(await post({ type: "voice", text: "conversación" }));
+  for (const text of ["borra el pizarrón", "pizarrón nuevo", "nuevo escrito"]) {
+    st = await waitHandled(await post({ type: "voice", text }));
+    assert.strictEqual(st.handled, false, text + " is a request to Claude, not a panel switch");
+    assert.strictEqual(st.panel, "conversacion");
+  }
+  st = await waitHandled(await post({ type: "voice", text: "ve al pizarrón" }));
+  assert.strictEqual(st.panel, "pizarron"); assert.strictEqual(st.handled, true);
   st = await waitHandled(await post({ type: "menu" }));
   assert.strictEqual(st.mode, "menu");
   await post({ type: "button", button: "no", gesture: "short" });          // -> Pizarrón
@@ -116,6 +150,90 @@ async function waitFile(pred) {
   st = await waitHandled(await post({ type: "exit" }));
   assert.strictEqual(st.mode, "idle");
   assert.strictEqual((await p.locator("#board-panel").isVisible()), false);
+
+  // something written on the board while another panel is showing: the board appears at once, at what is new
+  await say("conversación");
+  assert.strictEqual(await active(), "panel-conversacion");
+  const steps = Array.from({ length: 60 }, (_, i) => "Paso " + (i + 1) + ": $a_{" + i + "}$").join("\n\n");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8") + "\n## Nuevo\n\n" + steps + "\n");
+  await p.waitForTimeout(900);
+  assert.strictEqual(await active(), "panel-pizarron", "the board is shown as soon as it is written");
+  const top = await p.evaluate(() => [...document.querySelectorAll("#panel-pizarron h2")].find(h => h.textContent === "Nuevo").getBoundingClientRect().top);
+  assert.ok(top > 60 && top < 200, "what is new starts at the top of the screen, below the tabs: " + top);
+
+  // moving around by voice
+  const y0 = await scrollTop();
+  st = await say("baja");
+  assert.strictEqual(st.handled, true);
+  const y1 = await scrollTop();
+  assert.ok(y1 > y0 + 200, "baja moves most of a screen: " + y0 + " -> " + y1);
+  await say("sube un poco");
+  const y2 = await scrollTop();
+  assert.ok(y2 < y1 && y2 > y0, "sube un poco moves back less than a screen");
+  await say("al final");
+  const end = await scrollTop();
+  assert.ok(end > y1 && Math.abs(end - await p.evaluate(() => document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight)) < 3);
+  st = await say("baja");
+  assert.strictEqual(st.handled, true); assert.strictEqual(await scrollTop(), end, "nothing below the end");
+  await say("al principio del pizarrón");
+  assert.strictEqual(await scrollTop(), 0);
+  await say("baja dos");
+  const mid = await scrollTop();
+  assert.ok(mid > 400);
+  await say("conversación");
+  await say("pizarrón");
+  assert.ok(Math.abs(await scrollTop() - mid) < 3, "a panel comes back where it was left");
+  st = await say("sube el volumen");
+  assert.strictEqual(st.handled, false, "volume is not scrolling");
+
+  // the reply of a turn that wrote on the board leaves the board showing; the next plain reply shows the conversation
+  const conv = path.join(ws, "conversacion.md");
+  fs.appendFileSync(conv, "## 10:01 Tú\n\nescribe los pasos\n\n## 10:01 Asistente\n\nEstán en el pizarrón.\n\n");
+  await p.waitForTimeout(900);
+  assert.strictEqual(await active(), "panel-pizarron");
+  fs.appendFileSync(conv, "## 10:02 Tú\n\ngracias\n\n## 10:02 Asistente\n\nDe nada.\n\n");
+  await p.waitForTimeout(900);
+  assert.strictEqual(await active(), "panel-conversacion");
+
+  // with the computadora module on, a bare "baja" is ours only while this page is the window in front
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], desktop: true }));
+  await p.evaluate(() => { document.hasFocus = () => false; });
+  await p.waitForTimeout(700);
+  assert.strictEqual((await (await fetch(base + "/state")).json()).focused, false);
+  st = await say("baja");
+  assert.strictEqual(st.handled, false, "another application is in front: the loop scrolls that one");
+  st = await say("baja el pizarrón");
+  assert.strictEqual(st.handled, true); assert.strictEqual(st.panel, "pizarron");
+  const named = await scrollTop();
+  assert.ok(named > mid, "naming the panel always scrolls it");
+  st = await say("otra vez");
+  assert.strictEqual(st.handled, true, "the last scroll named the panel, so 'otra vez' is still about it");
+  assert.ok(await scrollTop() > named, "otra vez repeats it: " + named + " -> " + await scrollTop());
+  st = await say("scroll down");
+  assert.strictEqual(st.handled, false, "English too: with another application in front it is the loop's");
+  st = await say("again");
+  assert.strictEqual(st.handled, false, "and so is the 'again' that follows it");
+  await p.evaluate(() => { document.hasFocus = () => true; });
+  await p.waitForTimeout(700);
+  assert.strictEqual((await (await fetch(base + "/state")).json()).focused, true);
+  st = await say("sube");
+  assert.strictEqual(st.handled, true);
+  const up1 = await scrollTop();
+  st = await say("again");
+  assert.strictEqual(st.handled, true);
+  assert.ok(await scrollTop() < up1, "again repeats the last scroll of the page");
+  await say("go to the top");
+  assert.strictEqual(await scrollTop(), 0, "English scrolls the page the same way");
+  st = await say("the end");
+  assert.strictEqual(st.handled, false, "a place that is only named is not an order");
+
+  // wide layout: each panel scrolls on its own
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "wide" }));
+  await say("al principio del pizarrón");
+  await say("baja el pizarrón");
+  assert.ok(await panelTop() > 200);
+  assert.strictEqual(await scrollTop(), 0, "the window itself does not move in the wide layout");
+  await waitHandled(await post({ type: "config", panels: ["conversacion", "pizarron", "escritorio"], layout: "tabs" }));
 
   await p.screenshot({ path: path.join(ws, "board.png"), fullPage: true });
   await b.close();

@@ -75,11 +75,18 @@ else
   say "AVISO: local/allowed_signers no tiene una llave real. Las actualizaciones por voz no funcionarán hasta que la tenga."
 fi
 
+say "Comprobando la voz (si al sistema le falta una voz en inglés o en español, se descarga una; sólo la primera vez)"
+ONEBUTTON_HOME="$DEST" .venv/bin/python -m onebutton --voices \
+  || echo "AVISO: no hay ninguna voz para el idioma en que habla, así que sonará con el acento de otro idioma. Ver docs/guia-ayudante.md, 'Si algo falla'."
+
 say "Prueba de voz"
 .venv/bin/python - <<'PY'
 from onebutton.config import load
+from onebutton.lang import L, set_language
 from onebutton.tts import Speaker
-Speaker(load()).say("OneButton instalado correctamente.")
+cfg = load()
+set_language(cfg["speak_language"])
+Speaker(cfg).say(L("OneButton installed correctly.", "OneButton instalado correctamente."))
 PY
 
 cat <<MSG

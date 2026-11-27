@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from .config import LOCAL_DIR
+from .lang import L
 
 HARDWARE_FILE = LOCAL_DIR / "hardware.json"
 
@@ -98,9 +99,11 @@ def spoken_summary(info: dict) -> str:
     b = info.get("buttons") or {}
     n = sum(1 for k in ("talk", "no") if b.get(k))
     parts = []
-    parts.append({0: "ningún botón", 1: "un botón", 2: "dos botones"}[min(n, 2)])
+    parts.append({0: L("no button", "ningún botón"), 1: L("one button", "un botón"),
+                  2: L("two buttons", "dos botones")}[min(n, 2)])
     mics = info.get("microphones") or []
-    parts.append("micrófono" if mics else "ningún micrófono")
+    parts.append(L("a microphone", "micrófono") if mics else L("no microphone", "ningún micrófono"))
     scr = info.get("screens") or []
-    parts.append({0: "ninguna pantalla detectada", 1: "una pantalla"}.get(len(scr), f"{len(scr)} pantallas"))
-    return "Tengo " + ", ".join(parts) + "."
+    parts.append({0: L("no screen detected", "ninguna pantalla detectada"), 1: L("one screen", "una pantalla")}.get(
+        len(scr), L(f"{len(scr)} screens", f"{len(scr)} pantallas")))
+    return L("I have ", "Tengo ") + ", ".join(parts) + "."

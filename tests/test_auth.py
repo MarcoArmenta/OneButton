@@ -1,9 +1,22 @@
+import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from onebutton import auth
+
+
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
 
 
 class AuthTests(unittest.TestCase):
@@ -23,7 +36,8 @@ class AuthTests(unittest.TestCase):
             f.write_text("ANTHROPIC_API_KEY=sk-test\n")
             with mock.patch.object(auth, "CREDENTIALS_FILE", f):
                 env = auth.subprocess_env({"PATH": "/bin"})
-        self.assertEqual(env, {"PATH": "/bin", "ANTHROPIC_API_KEY": "sk-test"})
+        here = str(Path(sys.executable).parent)   # this Python goes first, so Claude's `python` is ours
+        self.assertEqual(env, {"PATH": os.pathsep.join([here, "/bin"]), "ANTHROPIC_API_KEY": "sk-test"})
 
     def test_missing_file_is_empty(self):
         with mock.patch.object(auth, "CREDENTIALS_FILE", Path("/nonexistent/credentials.env")):

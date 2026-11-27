@@ -4,6 +4,17 @@ import unittest
 from onebutton import gestures as g
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class GestureTests(unittest.TestCase):
     def test_every_combination_has_an_action(self):
         for btn, ges, st, two in itertools.product((g.TALK, g.NO), (g.SHORT, g.LONG),

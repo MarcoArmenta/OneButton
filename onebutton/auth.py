@@ -29,8 +29,11 @@ import json
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 from .config import LOCAL_DIR
+from .lang import L
 
 CREDENTIALS_FILE = LOCAL_DIR / "credentials.env"
 ACCEPTED = ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")
@@ -63,7 +66,17 @@ def credentials_env() -> dict[str, str]:
 
 
 def subprocess_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment Claude Code runs in: the credentials, and this Python first on the PATH.
+
+    Claude runs helpers as `python ...` (modules/computadora/desktop.py, the user's own scripts).
+    The first `python` on a Windows PATH is often the Microsoft Store stub or an interpreter
+    without OneButton's libraries; this one has them.
+    """
     env = dict(os.environ if base is None else base)
+    here = str(Path(sys.executable).parent)
+    parts = [p for p in env.get("PATH", "").split(os.pathsep) if p]
+    if not parts or parts[0] != here:
+        env["PATH"] = os.pathsep.join([here] + [p for p in parts if p != here])
     env.update(credentials_env())
     return env
 
@@ -96,10 +109,21 @@ def version(claude_bin: str = "claude") -> str:
     return m.group(0) if m else ""
 
 
+LOGIN_NEEDED = ("Claude Code is not signed in", "Claude Code no tiene la sesión iniciada")
+
+
 def login_message(helper: str) -> str:
-    return (f"Claude Code no tiene la sesión iniciada, así que no puedo hacer tareas. "
-            f"Di 'inicia sesión' y te ayudo a entrar desde el navegador. "
-            f"Si no funciona, hay que avisar a {helper}. Mientras tanto sigo escuchando.")
+    return L(f"{LOGIN_NEEDED[0]}, so I cannot do tasks. "
+             f"Say 'sign in' and I will help you in from the browser. "
+             f"If that does not work, {helper} has to be told. Meanwhile I keep listening.",
+             f"{LOGIN_NEEDED[1]}, así que no puedo hacer tareas. "
+             f"Di 'inicia sesión' y te ayudo a entrar desde el navegador. "
+             f"Si no funciona, hay que avisar a {helper}. Mientras tanto sigo escuchando.")
+
+
+def says_login_needed(reply: str) -> bool:
+    """True for a reply that is login_message(), in either language."""
+    return reply.startswith(LOGIN_NEEDED)
 
 
 URL_RE = re.compile(r"https?://[^\s\"'<>]+")

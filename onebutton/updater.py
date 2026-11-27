@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import LOCAL_DIR, REPO_DIR
+from .lang import L
 
 STATE_FILE = LOCAL_DIR / "state.json"
 ALLOWED_SIGNERS = LOCAL_DIR / "allowed_signers"
@@ -57,7 +58,8 @@ def version_key(tag: str) -> tuple[int, ...]:
 def verify_tag(tag: str, repo: Path = REPO_DIR) -> None:
     """Raise UpdateError unless `tag` carries a valid SSH signature from an allowed key."""
     if not ALLOWED_SIGNERS.exists():
-        raise UpdateError("Falta local/allowed_signers; no puedo verificar la firma.")
+        raise UpdateError(L("local/allowed_signers is missing; I cannot check the signature.",
+                            "Falta local/allowed_signers; no puedo verificar la firma."))
     # Pin the verifier so a machine-wide gpg.ssh.program (a signing-only wrapper, say)
     # cannot silently break or bypass verification.
     proc = subprocess.run(
@@ -66,7 +68,8 @@ def verify_tag(tag: str, repo: Path = REPO_DIR) -> None:
         cwd=repo, capture_output=True, text=True,
     )
     if proc.returncode != 0:
-        raise UpdateError(f"La firma de {tag} no es válida o no es de una llave autorizada.")
+        raise UpdateError(L(f"The signature of {tag} is not valid or is not from an authorised key.",
+                            f"La firma de {tag} no es válida o no es de una llave autorizada."))
 
 
 def changelog_for(tag: str, repo: Path = REPO_DIR) -> str:
@@ -82,6 +85,24 @@ def changelog_for(tag: str, repo: Path = REPO_DIR) -> str:
     rest = text[m.end():]
     nxt = re.search(r"^## ", rest, re.MULTILINE)
     return (rest[: nxt.start()] if nxt else rest).strip()
+
+
+def spoken_notes(notes: str, lang: str) -> str:
+    """The part of a release's notes written in `lang`.
+
+    A CHANGELOG section has a paragraph that starts "**Español.**" and one that starts
+    "**English.**". Only the one he will understand is read aloud; notes with no such
+    markers are read whole.
+    """
+    marks = {"es": "**Español.**", "en": "**English.**"}
+    mine = marks.get(lang[:2])
+    if not mine or mine not in notes:
+        return notes
+    part = notes.split(mine, 1)[1]
+    for other in marks.values():
+        if other != mine and other in part:
+            part = part.split(other, 1)[0]
+    return part.strip()
 
 
 def check(repo: Path = REPO_DIR) -> Release | None:

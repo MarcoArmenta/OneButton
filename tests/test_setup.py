@@ -11,6 +11,17 @@ import yaml
 from onebutton import hardware, setup
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class Speaker:
     def __init__(self):
         self.said = []

@@ -61,6 +61,18 @@ class SplitTests(unittest.TestCase):
             self.assertEqual(blocks.split_blocks(f.read_text())[0], "Primer párrafo\ncon dos líneas.")
             self.assertEqual(run("get", "99").returncode, 1)
 
+    def test_append_keeps_dictation_word_for_word(self):
+        said = ["Sea Q un carcaj  finito, sin ciclos orientados.", "um, this is this is exactly what I said"]
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "nuevo" / "manuscrito.md"      # a new piece: no file, no folder yet
+            for i, text in enumerate(said, 1):
+                r = subprocess.run([sys.executable, str(BLOCKS), "append", str(f)], input=text, capture_output=True, text=True)
+                self.assertEqual((r.returncode, r.stdout.strip()), (0, f"bloque {i}"))
+            self.assertEqual(blocks.split_blocks(f.read_text(encoding="utf-8")), said)
+            r = subprocess.run([sys.executable, str(BLOCKS), "append", str(f)], input="  \n", capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, "silence adds no paragraph")
+            self.assertEqual(blocks.split_blocks(f.read_text(encoding="utf-8")), said)
+
     @unittest.skipUnless(__import__("shutil").which("node"), "needs node")
     def test_page_counts_the_same_way(self):
         js = (REPO / "onebutton" / "screen" / "screen.js").read_text(encoding="utf-8")

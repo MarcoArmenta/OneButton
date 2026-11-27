@@ -65,8 +65,10 @@ irm https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/inst
 curl -fsSL https://raw.githubusercontent.com/MarcoArmenta/OneButton/main/bootstrap/install.sh | bash
 ```
 
-Tarda unos minutos la primera vez porque descarga el modelo de voz. Al final
-debería decir en voz alta "OneButton instalado correctamente".
+Tarda unos minutos la primera vez porque descarga el modelo que entiende la
+voz y, si a la computadora le falta una voz en inglés o en español, también
+una voz para hablar. Al final debería decir en voz alta "OneButton installed
+correctly" (o "OneButton instalado correctamente" si ya habla español).
 
 En Windows, comprueba además que las aplicaciones pueden usar el micrófono:
 Configuración, Privacidad y seguridad, Micrófono, "Permitir que las
@@ -111,6 +113,15 @@ pulsado un segundo y medio.
 Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
 "adelante". Enséñale los gestos con calma; el de cancelar da tranquilidad.
 
+Para moverse por lo que hay en pantalla dice "baja" o "sube" (casi una
+pantalla cada vez), "baja un poco", "baja mucho", "otra vez", "al principio"
+o "al final"; en inglés, "scroll down", "go up", "again", "to the top". Mueve
+el panel que está a la vista; nombrándolo mueve ése: "baja el
+pizarrón", "sube la conversación". Cuando Claude escribe en el pizarrón, el
+pizarrón se muestra solo, por donde empieza lo nuevo. Si está usando otro
+programa ("ve a Chrome"), "baja" y "sube" mueven ese programa, y "baja el
+pizarrón" sigue moviendo el pizarrón.
+
 Mientras Claude trabaja, puede pulsar el botón y hablarle: lo que diga se le
 pasa en cuanto termine el paso en curso ("Anotado"), igual que escribir en la
 terminal mientras Claude trabaja. También puede tener varias conversaciones a
@@ -134,14 +145,33 @@ tu escritorio, o crea un servicio de usuario con systemd.
 El archivo es `~/OneButton/local/config.yaml`. Ábrelo con cualquier editor de
 texto. Lo que más se cambia:
 
+- `speak_language`: el idioma en que habla la computadora, `en` (inglés, por
+  defecto) o `es`. No hace falta tocar el archivo: él puede decir "habla en
+  español" o "speak English" y queda guardado. Entiende siempre los dos
+  idiomas (`listen_languages`); cada orden vale en español y en inglés.
 - `silence_timeout`: segundos de silencio antes de que deje de grabar sola.
   Por defecto 90. Si la persona hace pausas largas, súbelo.
-- `tts_voice`: la voz. En Windows 11 lo mejor son las voces naturales:
-  Configuración, Accesibilidad, Narrador, "Agregar voces naturales", y elige
-  Español (México), Dalia o Jorge. OneButton las usa solas en cuanto están
-  instaladas; para forzar una, escribe aquí `Dalia` o `Jorge`. Sin voces
-  naturales usa la voz clásica del sistema (`Microsoft Sabina Desktop`), que
-  se entiende pero suena robótica. En macOS prueba `Paulina` o `Jorge`.
+- La voz. OneButton habla siempre con una voz del idioma en que está
+  hablando (`speak_language`), nunca con la voz por defecto del sistema, que
+  en una computadora en inglés leería el español con acento inglés, y al
+  revés. Busca primero una voz de ese idioma instalada en el sistema: en
+  Windows, para el español Sabina o Raúl (vienen con el idioma Español
+  (México); se añaden en Configuración, Hora e idioma, Voz, "Agregar voces")
+  y para el inglés David o Zira; en macOS, Paulina y Samantha. Si no hay
+  ninguna, descarga una sola vez una voz propia que funciona sin internet
+  (Piper, unos 60 MB, en `local\voices`). Para ver cuál va a usar en cada
+  idioma y oírla: `bin\onebutton.cmd --voices`. Para preferir una voz del
+  sistema, escribe parte de su nombre en `tts_voices`, en el idioma que
+  toque (`es: Raul`, `en: Zira`). Para usar siempre la voz propia,
+  `tts: piper`; para probar otra, `piper_voice: es_MX-ald-medium`. Las voces
+  naturales del Narrador de Windows 11 (Dalia, Jorge, Aria, Guy) sólo sirven
+  si aparecen en esa lista: Windows no siempre las presta a otros programas.
+- `button_exclusive`: `true` por defecto. Las teclas de los botones (espacio
+  e Intro) sólo las ve OneButton; así un botón nunca pasa de página un PDF ni
+  envía un formulario. Mientras OneButton está abierto, esas dos teclas
+  tampoco escriben en un teclado normal: para escribir tú con el teclado,
+  cierra OneButton o pon `false`. Para moverse por un documento él dice
+  "baja", "baja un poco", "otra vez", "ve hacia arriba".
 - `button_key`: si el botón uno no manda espacio, escribe aquí la tecla.
 - `button2_key`: la tecla del botón dos, normalmente `enter`. Si sólo hay un
   botón, pon `null`.
@@ -284,8 +314,17 @@ depende del programa de terminal; suele estar en Preferencias.
   Privacidad y seguridad; si no quieres darlo, usa `button_source: terminal`.
 - **Corta a la persona a mitad de frase.** Sube `silence_timeout`. Si la sala
   es ruidosa y nunca para sola, pon `silence_rms: 0.02` en la configuración.
-- **No habla (Windows).** Comprueba que hay una voz en español instalada
-  (paso 5). Sin ella usa la voz en inglés que haya, que suena mal pero funciona.
+- **Habla con el acento de otro idioma, o no habla.** Ejecuta
+  `bin\onebutton.cmd --voices` (en macOS y Linux, `bin/onebutton --voices`):
+  dice qué voz usa en cada idioma y si lo habla. Si la computadora no tiene
+  voz de un idioma, OneButton descarga la suya la primera vez que lo habla
+  con internet; sin internet esa primera vez usa la voz que haya, lo avisa en
+  la terminal y suena mal. Con internet, reinicia OneButton y queda arreglado.
+- **Claude dice que no tiene permiso para algo.** Lo que Claude Code puede
+  hacer sin preguntar está en `claude\settings.json` y se fija una sola vez,
+  para todos. Lo que se le negó queda apuntado en `local\session.log` en
+  líneas que empiezan por `PERMISO`, y sale en la terminal. Enséñale esas
+  líneas a quien mantiene OneButton.
 - **Quieres ver qué pasó.** `OneButton\local\session.log` guarda lo que se
   dijo y se respondió, con hora. No sale de la computadora.
 - **No escucha.** Comprueba el micrófono en los ajustes de sonido del sistema.

@@ -16,23 +16,38 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from .commands import normalize
+from .lang import L, language
 
 NEW, SWITCH, CLOSE, LIST = "new", "switch", "close", "list"
 IDLE, WORKING, DONE = "idle", "working", "done"  # done = has replies nobody has heard yet
 
 NUMBERS = {"uno": 1, "una": 1, "primera": 1, "dos": 2, "segunda": 2, "tres": 3, "tercera": 3, "cuatro": 4,
            "cuarta": 4, "cinco": 5, "quinta": 5, "seis": 6, "sexta": 6, "siete": 7, "septima": 7, "ocho": 8,
-           "octava": 8, "nueve": 9, "novena": 9, "diez": 10, "decima": 10}
-SPOKEN = {1: "uno", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez"}
+           "octava": 8, "nueve": 9, "novena": 9, "diez": 10, "decima": 10,
+           "one": 1, "first": 1, "two": 2, "second": 2, "three": 3, "third": 3, "four": 4, "fourth": 4,
+           "five": 5, "fifth": 5, "six": 6, "sixth": 6, "seven": 7, "seventh": 7, "eight": 8, "eighth": 8,
+           "nine": 9, "ninth": 9, "ten": 10, "tenth": 10}
+SPOKEN = {"es": {1: "uno", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho",
+                 9: "nueve", 10: "diez"},
+          "en": {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight",
+                 9: "nine", 10: "ten"}}
 
 _NUM = r"(?P<n>\d{1,2}|" + "|".join(NUMBERS) + r")"
 _CONV = r"(?:conversacion|charla|sesion)"
+_CONV_EN = r"(?:conversation|chat|session)"
 _PATTERNS = [
     (NEW, re.compile(rf"^(?:abre |empieza |inicia |crea |quiero )?(?:una |otra )?(?:nueva {_CONV}|{_CONV} nueva|otra {_CONV})(?: nueva)?$")),
     (CLOSE, re.compile(rf"^(?:cierra|termina|borra|quita|elimina)(?: esta| la| esa)? {_CONV}(?: {_NUM})?$")),
     (LIST, re.compile(rf"^(?:que|cuales|cuantas) {_CONV}(?:es)? (?:hay|tengo|estan abiertas)$|^(?:lista|listado) de {_CONV}(?:es)?$|^(?:en que|cual) {_CONV} estoy$")),
     (SWITCH, re.compile(rf"^(?:ve a |vamos a |cambia a |cambiar a |pasa a |vuelve a |volver a |regresa a |abre |muestra )?(?:la )?{_CONV} (?:numero )?{_NUM}$")),
     (SWITCH, re.compile(rf"^(?:ve a |vamos a |cambia a |pasa a |vuelve a |regresa a )(?:la )?{_NUM}$")),
+    # English
+    (NEW, re.compile(rf"^(?:open |start |begin |create |i want )?(?:a |another )?(?:new {_CONV_EN}|another {_CONV_EN})$")),
+    (CLOSE, re.compile(rf"^(?:close|end|finish|delete|remove)(?: this| the| that)? {_CONV_EN}(?: (?:number )?{_NUM})?$")),
+    (LIST, re.compile(rf"^(?:what|which|how many) {_CONV_EN}s (?:are there|are open|do i have)$|^list(?: of)?(?: the)? {_CONV_EN}s$"
+                      rf"|^(?:which|what) {_CONV_EN} am i in$")),
+    (SWITCH, re.compile(rf"^(?:go to |switch to |change to |back to |go back to |return to |open |show )?(?:the )?{_CONV_EN} (?:number )?{_NUM}$")),
+    (SWITCH, re.compile(rf"^(?:go to |switch to |back to |go back to |return to )(?:the )?(?:number )?{_NUM}(?: one)?$")),
 ]
 
 
@@ -54,7 +69,7 @@ def parse(text: str) -> dict | None:
 
 
 def spoken(n: int) -> str:
-    return SPOKEN.get(n, str(n))
+    return SPOKEN[language()].get(n, str(n))
 
 
 @dataclass
@@ -64,6 +79,7 @@ class Conversation:
     title: str = ""                # the first thing the user said, for the summary
     state: str = IDLE
     last_reply: str = ""
+    dictating: bool = False        # the writing desk is taking his words down (see commands.dictation)
     announced: bool = True         # a background finish is announced once
     replies: deque = field(default_factory=deque)   # finished turns nobody has heard yet
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -133,16 +149,20 @@ class Registry:
         return [c for c in self.items if c.replies and not c.announced]
 
     def summary(self) -> str:
+        def what(c: Conversation) -> str:
+            return {WORKING: L("is working", "está trabajando"),
+                    DONE: L("has finished and you have not heard it", "terminó y no la has oído")}.get(
+                        c.state, L("is free", "está libre"))
+
         if len(self.items) == 1:
             c = self.items[0]
-            what = {WORKING: "está trabajando", DONE: "terminó y no la has oído"}.get(c.state, "está libre")
-            return f"Hay una sola conversación, la {spoken(c.n)}, y {what}."
-        parts = [f"Hay {spoken(len(self.items))} conversaciones."]
+            return L(f"There is one conversation, number {spoken(c.n)}, and it {what(c)}.",
+                     f"Hay una sola conversación, la {spoken(c.n)}, y {what(c)}.")
+        parts = [L(f"There are {spoken(len(self.items))} conversations.", f"Hay {spoken(len(self.items))} conversaciones.")]
         for c in self.items:
-            about = f", sobre {c.title}" if c.title else ""
-            what = {WORKING: "está trabajando", DONE: "terminó y no la has oído"}.get(c.state, "está libre")
-            parts.append(f"La {spoken(c.n)}{about}, {what}.")
-        parts.append(f"Estás en la {spoken(self.current.n)}.")
+            about = L(f", about {c.title}", f", sobre {c.title}") if c.title else ""
+            parts.append(L(f"Number {spoken(c.n)}{about}, {what(c)}.", f"La {spoken(c.n)}{about}, {what(c)}."))
+        parts.append(L(f"You are in number {spoken(self.current.n)}.", f"Estás en la {spoken(self.current.n)}."))
         return " ".join(parts)
 
 

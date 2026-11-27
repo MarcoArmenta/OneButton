@@ -4,6 +4,17 @@ from onebutton import commands, hardware
 from onebutton.config import DEFAULTS
 
 
+from onebutton import lang as _lang
+
+
+def setUpModule():      # these tests read the Spanish phrases; test_english.py reads the English ones
+    _lang.set_language("es")
+
+
+def tearDownModule():
+    _lang.set_language("en")
+
+
 class HardwareTests(unittest.TestCase):
     def test_preset_from_aspect(self):
         self.assertEqual(hardware.suggest_preset([{"width": 1920, "height": 1080}]), "monitor")

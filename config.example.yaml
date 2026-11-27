@@ -1,9 +1,12 @@
 # OneButton configuration. Copy to local/config.yaml and edit.
 # Nothing in this file is secret, but local/config.yaml is still git-ignored.
 
-language: es                 # Whisper language code: es, en, ...
+speak_language: en           # What the computer speaks: en or es. By voice: "speak Spanish", "habla en inglés".
+listen_languages: [en, es]   # What it understands. Each utterance is taken as one of these; list one to skip detection.
 button_key: space            # Button 1, the stronger hand: talk. Key the USB switch sends; "space" is the usual one.
 button2_key: enter           # Button 2, optional: no / cancel. Set to null for a single-button setup.
+button_exclusive: true       # The button keys reach OneButton only, never the application in front (a space bar would
+                             # page a PDF). While it runs, those two keys do nothing on a real keyboard; false turns it off.
 # Tremor filters (seconds). Raise min_hold and refractory if accidental presses get through.
 press_min_hold: 0.06         # Presses shorter than this are ignored.
 press_bounce: 0.15           # A release and re-press within this window is one hold continuing.
@@ -15,24 +18,33 @@ max_recording: 600           # Hard cap in seconds for a single utterance.
 sample_rate: 16000
 input_device: null           # Microphone name or index for sounddevice; null = system default.
 silence_rms: auto            # auto calibrates from room noise at startup; or a number such as 0.01.
-whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish on a CPU.
+whisper_model: small         # tiny, base, small, medium, large-v3. "small" is fine for Spanish and English on a CPU.
 whisper_device: auto         # auto, cpu, cuda
 vad_threshold: 0.35          # Lower (0.2) if a soft voice gets cut; raise (0.5) in a noisy room.
-whisper_prompt: "Matemáticas, álgebra, carcaj, representaciones, módulo, teorema, lema, demostración, adelante, actualiza, deshacer, pizarrón, escritorio, nueva conversación."
+# Words the recogniser should expect, per language: the user's own vocabulary and the commands.
+whisper_prompts:
+  en: "Mathematics, algebra, quiver, representations, module, theorem, lemma, proof, go ahead, update, undo, board, desk, new conversation, review, scroll down."
+  es: "Matemáticas, álgebra, carcaj, representaciones, módulo, teorema, lema, demostración, adelante, actualiza, deshacer, pizarrón, escritorio, nueva conversación, revisión, baja un poco."
 
-# Voice words. Two syllables are recognised far more reliably than "sí" alone.
-confirm_words: ["adelante", "sí adelante", "confirmo"]
-cancel_words: ["cancela", "cancelar", "no", "para"]
-update_words: ["actualiza", "actualizar"]
-undo_words: ["deshacer", "deshaz"]
-repeat_words: ["repite", "repítelo"]
+# Voice words, in both languages. Two syllables are recognised far more reliably than "sí" or "yes" alone.
+# The built-in words always work; what you list here is added to them.
+confirm_words: ["go ahead", "yes go ahead", "confirm", "adelante", "sí adelante", "confirmo"]
+cancel_words: ["cancel", "stop", "no", "cancela", "cancelar", "para"]
+update_words: ["update", "check for updates", "actualiza", "actualizar"]
+undo_words: ["undo", "roll back", "deshacer", "deshaz"]
+repeat_words: ["repeat", "say that again", "repite", "repítelo"]
 
-# Speech output.
-tts: auto                    # auto, say (macOS), espeak, pyttsx3, none
-tts_voice: ""                # Leave empty for the system default. On macOS try "Paulina" or "Jorge".
+# Speech output. The voice is always one that speaks the language being spoken. auto: a voice of
+# that language installed on the system; if there is none, the offline Piper voice (downloaded once
+# into local/voices). `onebutton --voices` shows what will speak, in each language.
+tts: auto                    # auto, piper, winrt or sapi (Windows), say (macOS), espeak, pyttsx3, none
+tts_voices:                  # Per language, part of a system voice's name to prefer. Empty: the best one of the language.
+  en: ""                     # e.g. "Aria", "Guy", "David" (Windows), "Samantha" (macOS).
+  es: ""                     # e.g. "Dalia", "Jorge", "Sabina", "Raul" (Windows), "Paulina" (macOS).
 tts_rate: 170
-piper_model: ""              # Path to a Piper .onnx voice (good offline Spanish on Linux). Used when tts is piper or auto.
-progress_interval: 45        # Seconds before saying "sigo en ello" during a long task. 0 disables.
+piper_voice: ""              # A Piper voice by name instead of the default for its language (es: es_MX-claude-high, en: en_US-lessac-medium), e.g. es_MX-ald-medium.
+piper_model: ""              # Or the path to a Piper .onnx file you already have.
+progress_interval: 45        # Seconds before saying "still on it" during a long task. 0 disables.
 log_transcripts: true        # Append what was said and answered to local/session.log (never leaves the machine).
 
 # Screen.
@@ -57,7 +69,7 @@ screen_theme: auto           # override: auto, light, dark, glasses
 screen_layout: auto          # override: tabs, wide
 screen_font_size: auto       # override: pixels, e.g. 32
 
-# Modules. Each adds rules and a panel: maths-screen -> Pizarrón, scribe -> Escritorio.
+# Modules. Each adds rules and a panel: maths-screen -> Board (Pizarrón), scribe -> Desk (Escritorio).
 modules: [maths-screen, scribe, computadora]  # the pizarrón, the writing desk, and control of any application
 
 # Updates. The updater refuses anything that is not a tag signed by a key in local/allowed_signers.
