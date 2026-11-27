@@ -224,6 +224,11 @@ _PANEL_WORDS_EN = {"board", "blackboard", "whiteboard", "desk", "conversation", 
 _ON_PANEL_EN = re.compile(r"\b(?:on|in|to|onto|into) (?:the |my )?(?:writing )?(?:"
                           + "|".join(sorted(_PANEL_WORDS_EN)) + r")\b")
 _APP_ACTIONS = {"type", "focus", "open"}
+# "Abre ..." starts a program by its name. A paper, a file or a folder has to be found first, which
+# is Claude's work: typed into the Start menu, "artículo de Gabriel" becomes a web search for the words.
+_DOCUMENTS = {"articulo", "articulos", "documento", "documentos", "archivo", "pdf", "libro", "carpeta", "pagina",
+              "sitio", "video", "article", "document", "file", "book", "folder", "page", "site", "website", "link"}
+_PROGRAMS = {"file explorer", "file manager"}   # programs whose name begins like a document
 
 
 def _about_a_panel(action: str, t: str) -> bool:
@@ -256,6 +261,8 @@ def parse(text: str) -> dict | None:
         if "target" in act:
             act["target"] = _ARTICLES.sub("", act["target"]).strip()
             if not act["target"]:
+                return None
+            if act["action"] == "open" and act["target"].split()[0] in _DOCUMENTS and act["target"] not in _PROGRAMS:
                 return None
         return act
     return None

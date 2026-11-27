@@ -38,6 +38,19 @@ class ParseTests(unittest.TestCase):
         self.check("type the paper is due on friday", {"action": "type", "text": "the paper is due on friday"})
         self.check("type we should chat tomorrow", {"action": "type", "text": "we should chat tomorrow"})
 
+    def test_opening_a_document_is_a_request_not_a_program(self):
+        # "abre ..." starts a program by its name. A paper, a file or a folder is something to find
+        # first: typed into the Start menu it would become a web search for the words.
+        for said in ["abre el artículo de Gabriel", "abre el pdf del teorema de Gabriel", "abre el documento de ayer",
+                     "abre la carpeta de descargas", "abre el video de la conferencia", "open the article on quivers",
+                     "open the file I downloaded yesterday", "open the folder with my papers",
+                     "abre el artículo de Marco Armenta de la transformación de Coxeter en el cálculo de Tamarkin-Tsygan"]:
+            self.assertIsNone(parse(said), said)
+        self.check("abre el bloc de notas", {"action": "open", "target": "bloc de notas"})
+        self.check("abre el explorador de archivos", {"action": "open", "target": "explorador de archivos"})
+        self.check("open file explorer", {"action": "open", "target": "file explorer"})
+        self.check("abre Chrome", {"action": "open", "target": "chrome"})
+
     def test_numbers_and_clicks(self):
         self.check("muestra los números", {"action": "overlay"})
         self.check("pulsa el siete", {"action": "click_number", "n": 7})
