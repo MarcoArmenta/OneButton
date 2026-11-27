@@ -102,16 +102,21 @@ Cada botón significa siempre lo mismo, con dos gestos: pulsar, y mantener
 pulsado un segundo y medio.
 
 - **Botón uno (el derecho, salvo que él lo cambie), pulsar:** hablar. Una vez para empezar, otra para terminar.
-  También corta la voz si está hablando.
+  Cuando empieza a escuchar suena un sonido corto de dos notas que sube;
+  cuando deja de escuchar, una sola nota más grave. Así él oye si está
+  escuchando. Si la computadora está hablando, pulsar corta la voz y empieza
+  a escuchar en el acto.
 - **Botón uno, mantener:** sí, cuando OneButton ha hecho una pregunta. Si no
   hay pregunta, repite la última respuesta.
 - **Botón dos (el izquierdo), pulsar:** no. Cancela lo que esté pasando: una grabación, una
-  tarea, una pregunta. También corta la voz.
+  tarea, una pregunta. También corta la voz, sin ponerse a escuchar.
 - **Botón dos, mantener:** abre el menú de la pantalla: ir a un panel, editar
   una fórmula, leer en voz alta, ayuda.
 
 Con un solo botón: mantener pulsado cancela, y el sí se dice con la palabra
-"adelante". Enséñale los gestos con calma; el de cancelar da tranquilidad.
+"adelante". Para sólo callar la voz con un botón: pulsar (se calla y
+escucha) y pulsar otra vez (deja de escuchar, y no dice que no oyó nada).
+Enséñale los gestos con calma; el de cancelar da tranquilidad.
 
 Para moverse por lo que hay en pantalla dice "baja" o "sube" (casi una
 pantalla cada vez), "baja un poco", "baja mucho", "otra vez", "al principio"
@@ -151,6 +156,9 @@ texto. Lo que más se cambia:
   idiomas (`listen_languages`); cada orden vale en español y en inglés.
 - `silence_timeout`: segundos de silencio antes de que deje de grabar sola.
   Por defecto 90. Si la persona hace pausas largas, súbelo.
+- `cue_sounds`: `true` por defecto. Suena un sonido corto de dos notas que
+  sube cuando empieza a escuchar, y una sola nota más grave cuando deja de
+  escuchar. Para quitar los dos sonidos, pon `false`.
 - La voz. OneButton habla siempre con una voz del idioma en que está
   hablando (`speak_language`), nunca con la voz por defecto del sistema, que
   en una computadora en inglés leería el español con acento inglés, y al
@@ -313,6 +321,9 @@ depende del programa de terminal; suele estar en Preferencias.
   qué tecla manda cada botón, abre un editor de texto y púlsalos. En
   Windows no hace falta ningún permiso. En macOS, la Terminal necesita el permiso "Monitorización de entrada" en
   Privacidad y seguridad; si no quieres darlo, usa `button_source: terminal`.
+- **No sabe si está escuchando.** Los dos sonidos lo dicen: el que sube,
+  escucha; la nota grave, ha dejado de escuchar. Si no suena nada, la
+  pulsación no contó (o los sonidos están quitados con `cue_sounds: false`).
 - **Corta a la persona a mitad de frase.** Sube `silence_timeout`. Si la sala
   es ruidosa y nunca para sola, pon `silence_rms: 0.02` en la configuración.
 - **Habla con el acento de otro idioma, o no habla.** Ejecuta
