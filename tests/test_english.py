@@ -440,14 +440,17 @@ class EvidenceTests(unittest.TestCase):
         self.assertIsNone(lp.action("idle", 0.1))
         self.assertEqual(self.logged, [("BOTÓN", "talk short (idle) -> talk"), ("BOTÓN", "talk short (recording) -> stop")])
 
-    def test_a_press_that_only_cut_the_voice_is_logged(self):
+    def test_a_press_that_cut_the_voice_is_logged_with_what_it_did(self):
         lp = self.lp
-        pressed = __import__("queue").Queue()
-        pressed.put(("talk", "short"))
-        lp.button = types.SimpleNamespace(events=pressed, clear=lambda: None)
-        lp.speaker = types.SimpleNamespace(say=lambda text, until=None, clean=False: False)   # False: it was interrupted
-        lp.say("A long reply.")
-        self.assertEqual(self.logged, [("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")])
+        for press, what in [(("no", "short"), "una pulsación cortó la voz; no empezó a grabar"),
+                            (("talk", "short"), "una pulsación cortó la voz y empieza a escuchar")]:
+            pressed = __import__("queue").Queue()
+            pressed.put(press)
+            lp.button = types.SimpleNamespace(events=pressed, clear=lambda: None, poll=pressed.get_nowait)
+            lp.speaker = types.SimpleNamespace(say=lambda text, until=None, clean=False: False)   # False: it was interrupted
+            lp.barged = False
+            lp.say("A long reply.")
+            self.assertEqual(self.logged.pop(), ("BOTÓN", what))
 
     def test_an_order_to_the_computer_that_failed_is_logged(self):
         lp = self.lp

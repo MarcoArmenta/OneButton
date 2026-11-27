@@ -34,6 +34,7 @@ DEFAULTS = {
     "button_key": "space",
     "button2_key": "enter",
     "button_exclusive": True,
+    "cue_sounds": True,              # a sound when it starts listening and another when it stops
     "press_min_hold": 0.0,           # no press is too short to count; set it (0.06 to 0.12) to ignore stray touches
     "press_bounce": 0.15,
     "press_refractory": 0.35,

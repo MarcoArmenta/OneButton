@@ -15,6 +15,11 @@ The buttons belong to the loop. They are swallowed before any application sees
 them, so a press never pages a PDF; moving a page is done by voice ("baja un
 poco", "scroll down", "otra vez").
 
+The talk button means one of two things, and he can hear which: "I am talking"
+(two notes going up) or "I am done" (one lower note). A press while the
+computer is speaking stops the voice and starts listening at once; button two
+silences it without listening.
+
 The screen (onebutton/screen) is a local page with panels: the conversation,
 the maths board, the manuscript. Short utterances that name a panel or ask to
 read are handled there, instantly. Holding button 2 opens its ring menu and
@@ -45,6 +50,7 @@ from .lang import name as language_name
 # What may still be done on the computer while he is dictating: nothing that takes free text.
 DICTATION_SAFE = ("scroll", "scroll_again", "volume")
 SCROLL_AGAIN_WINDOW = 300.0     # seconds during which "otra vez" still means the last scroll
+BARGE_SECONDS = 20.0            # after a press cut the voice to talk: how long nothing else is said while he has not spoken
 EXIT_WORDS = ("salir", "sal", "listo", "terminar", "cerrar", "exit", "done", "close", "finish", "quit", "leave")
 CANCEL_WORDS = ("cancela", "cancelar", "salir", "quita", "no", "cancel", "exit", "stop", "never mind")
 HERE_WORDS = ("aqui", "pulsa", "clic", "click", "ahi", "here", "there", "press", "that one")
@@ -56,6 +62,11 @@ def banner() -> str:
 
 
 class Loop:
+    cues = None                     # the listening / stopped sounds (sounds.Cues), when there is audio
+    barged = False                  # he pressed to talk while it was speaking, and has not been recorded yet
+    barged_at = 0.0
+    last_recording_barged = False   # the last recording began that way
+
     def __init__(self, cfg: dict, dry_run: bool = False):
         from .rules import install as install_rules
         from .tts import Speaker
@@ -97,8 +108,11 @@ class Loop:
                              filters={"min_hold": float(cfg["press_min_hold"]), "bounce": float(cfg["press_bounce"]),
                                       "refractory": float(cfg["press_refractory"]), "long_hold": float(cfg["long_hold"])},
                              exclusive=bool(cfg.get("button_exclusive", True)))
+        from .sounds import Cues
+
         self.recorder = Recorder(cfg)
         self.transcriber = Transcriber(cfg)
+        self.cues = Cues(cfg)
         self.agent = Agent(cfg)
         self.agent.on_denied = self.note_denied
 
@@ -197,15 +211,48 @@ class Loop:
         return True
 
     def say(self, text: str, clean: bool = False) -> None:
-        """Speak, and let any button press cut it short. The press is consumed."""
+        """Speak, and let any button press cut it short.
+
+        A short press of the talk button cuts the voice because he wants to talk: the press still
+        counts, so whoever reads the button next starts recording, and nothing else is said until
+        he has spoken. Any other press only silences it.
+        """
         if self.dry_run or not self.button:
             self.speaker.say(text, clean=clean)
+            return
+        if self.barging():
+            print(f"\n🔇 {text}\n", flush=True)   # he has the floor: it stays on the screen, unsaid
             return
         self.button.clear()
         finished = self.speaker.say(text, until=lambda: not self.button.events.empty(), clean=clean)
         if not finished:
+            ev = self.button.poll()
             self.button.clear()
-            self.log("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")
+            if ev == (TALK, SHORT):
+                self.barged, self.barged_at = True, time.monotonic()
+                self.button.events.put(ev)
+                self.log("BOTÓN", "una pulsación cortó la voz y empieza a escuchar")
+            else:
+                self.log("BOTÓN", "una pulsación cortó la voz; no empezó a grabar")
+
+    def barging(self) -> bool:
+        """True from a press that cut the voice to talk until the recording it asked for starts.
+        It lapses by itself, so a press lost on the way can never leave the computer mute."""
+        if self.barged and time.monotonic() - self.barged_at > BARGE_SECONDS:
+            self.barged = False
+        return self.barged
+
+    def forget_presses(self) -> None:
+        """Drop presses made before now, except the one that is waiting to start his recording."""
+        if not self.barging():
+            self.button.clear()
+
+    def heard_nothing(self) -> None:
+        """A recording with no words in it. If he had pressed only to silence the voice, say nothing."""
+        if self.last_recording_barged:
+            return
+        self.say(L("I heard nothing. Press the button and try again.",
+                   "No escuché nada. Pulsa el botón y vuelve a intentarlo."))
 
     def start_modules(self) -> None:
         """Start the screen, then any long-running helper a module ships."""
@@ -288,9 +335,14 @@ class Loop:
                     cancelled.set()
                     stop.set()
 
+        self.last_recording_barged, self.barged = self.barged, False
         threading.Thread(target=watch_button, daemon=True).start()
+        if self.cues:
+            self.cues.start()
         audio = self.recorder.record_until(stop)
         stop.set()
+        if self.cues:
+            self.cues.stop()
         # How long it listened and how loud the loudest moment was (1.0 is the limit): a long, quiet
         # recording is one he did not know was running; a short loud one that gives no text is the recogniser.
         level = float(abs(audio).max()) if audio.size else 0.0
@@ -948,7 +1000,7 @@ class Loop:
         Saying 'nueva conversación' or 'conversación dos' leaves this one working in the
         background and returns to the main loop in the other conversation.
         """
-        self.button.clear()
+        self.forget_presses()
         next_progress = time.monotonic() + self.progress_interval
         while conv.state == conversations.WORKING:
             act = self.action(THINKING, 0.2)
@@ -1017,8 +1069,7 @@ class Loop:
                     continue
                 cmd = self.classify(heard)
                 if cmd.kind == commands.EMPTY:
-                    self.say(L("I heard nothing. Press the button and try again.",
-                               "No escuché nada. Pulsa el botón y vuelve a intentarlo."))
+                    self.heard_nothing()
                 elif cmd.kind == commands.UPDATE:
                     self.handle_update()
                 elif cmd.kind == commands.UPDATE_CLAUDE:
