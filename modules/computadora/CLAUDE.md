@@ -17,7 +17,8 @@ de que falta una biblioteca, dilo y para.
   las de la pantalla real.
 - `elements` → controles pulsables de la ventana activa, con nombre, tipo y
   centro `x, y`. Más fiable que adivinar coordenadas: úsalo primero.
-- `windows`, `focus <nombre>`, `open <nombre>`, `minimize`, `maximize`.
+- `windows`, `focus <nombre>`, `open <nombre o dirección web>`, `minimize`,
+  `maximize`.
 - `click <x> <y> [left|right|double]`, `move <x> <y>`, `scroll <up|down> [n]`
   (desplaza la ventana que está al frente).
 - `key <combo>` (`enter`, `esc`, `ctrl+s`, `alt+f4`, `win+d`), `type <texto>`.
@@ -68,4 +69,5 @@ para ti.
 Para saber algo ("busca en Google ...", "qué dice la Wikipedia de ..."), usa
 tu propia búsqueda web y contesta en voz alta: no hace falta abrir ningún
 navegador. Abre el navegador sólo si el usuario pide ver la página; entonces
-usa `python ../modules/computadora/desktop.py open` o `start <dirección>`.
+usa `python ../modules/computadora/desktop.py open <dirección>`, que la abre
+en el navegador predeterminado (también entiende `open gmail`, `open youtube`).

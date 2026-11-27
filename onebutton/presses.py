@@ -1,8 +1,9 @@
 """Turn raw key down/up into clean button events, tolerant of tremor.
 
-Pure and time-explicit so it is testable. Three filters, all in the config:
+Pure and time-explicit so it is testable. The filters, all in the config:
 
-- min_hold:   a press shorter than this is a tremor tap and is ignored.
+- min_hold:   off unless set (0): no press is too short to count. When set, a
+              press shorter than this is taken for a stray touch and ignored.
 - bounce:     a release followed by a new press within this window is the same
               hold continuing (a trembling hand loses contact for a moment).
 - refractory: after an event is emitted, presses in this window are ignored,
@@ -20,7 +21,7 @@ SHORT, LONG = "short", "long"
 
 @dataclass
 class PressFilter:
-    min_hold: float = 0.06
+    min_hold: float = 0.0
     bounce: float = 0.15
     refractory: float = 0.35
     long_hold: float = 1.5

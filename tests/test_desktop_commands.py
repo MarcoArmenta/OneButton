@@ -12,6 +12,8 @@ class ParseTests(unittest.TestCase):
         self.check("ve a Chrome", {"action": "focus", "target": "chrome"})
         self.check("cambia al navegador", {"action": "focus", "target": "navegador"})
         self.check("abre el bloc de notas", {"action": "open", "target": "bloc de notas"})
+        self.check("Open my Gmail.", {"action": "open", "target": "gmail"})
+        self.check("abre mi gmail", {"action": "open", "target": "gmail"})
 
     def test_screen_panels_are_not_desktop_targets(self):
         self.assertIsNone(parse("ve al pizarrón"))
